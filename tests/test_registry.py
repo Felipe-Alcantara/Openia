@@ -1,0 +1,36 @@
+"""Testes do registro de interfaces e do contrato AIInterface."""
+
+from __future__ import annotations
+
+import pytest
+
+from orctl.interfaces import registry
+from orctl.interfaces.base import AIInterface, Ecosystem
+
+
+def test_todas_interfaces_tem_chave_unica():
+    chaves = [i.key for i in registry.all_interfaces()]
+    assert len(chaves) == len(set(chaves)), "há chaves duplicadas no registro"
+
+
+def test_get_encontra_interface_existente():
+    iface = registry.get("orchat")
+    assert iface.name == "OrChat"
+
+
+def test_get_chave_invalida_levanta_keyerror():
+    with pytest.raises(KeyError):
+        registry.get("nao-existe")
+
+
+def test_contrato_rejeita_chave_nao_identificador():
+    with pytest.raises(ValueError):
+        AIInterface(
+            key="chave-invalida",  # hífen não é identificador
+            name="X",
+            description="x",
+            ecosystem=Ecosystem.PYTHON,
+            package="x",
+            command="x",
+            homepage="https://example.com",
+        )

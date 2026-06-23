@@ -1,0 +1,14 @@
+
+/Padrão de qualidade - Felixo System Design
+
+# Segredos: a chave do OpenRouter nunca deve ser versionada.
+orctl/.env
+.env
+
+# Artefatos Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+build/
+dist/
