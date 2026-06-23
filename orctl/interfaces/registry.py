@@ -101,6 +101,30 @@ _INTERFACES: tuple[AIInterface, ...] = (
         model_prefix="openrouter/",
         model_select_in_app=True,
     ),
+    AIInterface(
+        key="claudecode",
+        name="Claude Code",
+        description="Agente de código da Anthropic; fala o protocolo Anthropic com o OpenRouter.",
+        ecosystem=Ecosystem.NODE,
+        package="@anthropic-ai/claude-code",
+        command="claude",
+        homepage="https://docs.claude.com/claude-code",
+        # Claude Code usa as variáveis da Anthropic, não o padrão OpenAI:
+        # a chave vai em ANTHROPIC_AUTH_TOKEN e a base_url é /api (sem /v1).
+        env_keys=("ANTHROPIC_AUTH_TOKEN",),
+        base_url_env="ANTHROPIC_BASE_URL",
+        base_url="https://openrouter.ai/api",
+        # ANTHROPIC_API_KEY precisa ficar vazia para não conflitar com o token.
+        clear_env=("ANTHROPIC_API_KEY",),
+        # --model aceita o id do OpenRouter; funciona melhor com modelos Anthropic.
+        model_arg="--model",
+        setup_hint=(
+            "Otimizado para modelos Anthropic — outros providers podem não "
+            "funcionar 100%. Se você já estava logado com conta Anthropic, "
+            "rode /logout uma vez dentro do Claude Code para evitar conflito "
+            "com o token do OpenRouter. Confira a conexão com /status."
+        ),
+    ),
 )
 
 _BY_KEY: dict[str, AIInterface] = {iface.key: iface for iface in _INTERFACES}

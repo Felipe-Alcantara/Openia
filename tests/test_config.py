@@ -79,3 +79,25 @@ def test_build_run_env_injeta_chave_e_aliases():
     assert env[config.ENV_VAR] == VALID_KEY
     assert env["OPENAI_API_KEY"] == VALID_KEY
     assert env["OPENAI_API_BASE"].startswith("https://openrouter.ai")
+
+
+def test_build_run_env_base_url_custom_e_clear_env(monkeypatch):
+    # Simula uma chave Anthropic já no ambiente que precisa ser esvaziada.
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "valor-antigo")
+    iface = AIInterface(
+        key="claude_like",
+        name="ClaudeLike",
+        description="teste",
+        ecosystem=Ecosystem.NODE,
+        package="x",
+        command="x",
+        homepage="https://example.com",
+        env_keys=("ANTHROPIC_AUTH_TOKEN",),
+        base_url_env="ANTHROPIC_BASE_URL",
+        base_url="https://openrouter.ai/api",
+        clear_env=("ANTHROPIC_API_KEY",),
+    )
+    env = config.build_run_env(iface, VALID_KEY)
+    assert env["ANTHROPIC_AUTH_TOKEN"] == VALID_KEY
+    assert env["ANTHROPIC_BASE_URL"] == "https://openrouter.ai/api"  # sem /v1
+    assert env["ANTHROPIC_API_KEY"] == ""  # esvaziada

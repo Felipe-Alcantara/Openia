@@ -101,5 +101,8 @@ def build_run_env(interface: AIInterface, api_key: str) -> dict[str, str]:
     for alias in interface.env_keys:
         env[alias] = api_key
     if interface.base_url_env:
-        env[interface.base_url_env] = OPENROUTER_BASE_URL
+        env[interface.base_url_env] = interface.base_url or OPENROUTER_BASE_URL
+    # Esvazia variáveis que conflitam com a forma de autenticação da ferramenta.
+    for name in interface.clear_env:
+        env[name] = ""
     return env

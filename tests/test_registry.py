@@ -65,5 +65,11 @@ def test_contrato_script_exige_url_https():
 
 
 def test_agentes_de_codigo_registrados():
-    for chave in ("cline", "opencode", "openclaw"):
+    for chave in ("cline", "opencode", "openclaw", "claudecode"):
         assert registry.get(chave).key == chave
+
+
+def test_claudecode_usa_base_url_sem_v1():
+    iface = registry.get("claudecode")
+    assert iface.base_url == "https://openrouter.ai/api"
+    assert "ANTHROPIC_API_KEY" in iface.clear_env

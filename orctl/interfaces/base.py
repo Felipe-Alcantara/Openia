@@ -42,6 +42,9 @@ class AIInterface:
             (ex.: ``OPENAI_API_KEY`` para CLIs compatíveis com OpenAI).
         base_url_env: Variável que aponta a base_url para o OpenRouter, quando
             a ferramenta usa o protocolo compatível com OpenAI.
+        base_url: Valor da base_url a injetar em ``base_url_env``. Vazio usa o
+            padrão OpenAI-compatível do OpenRouter. O Claude Code, por exemplo,
+            usa ``https://openrouter.ai/api`` (sem ``/v1``).
         homepage: Link de referência para o usuário.
         run_args: Argumentos padrão ao iniciar a ferramenta (normalmente vazio).
         install_script: Para ``ecosystem=SCRIPT``, a URL do instalador oficial
@@ -60,6 +63,9 @@ class AIInterface:
         model_select_in_app: Quando ``True``, a ferramenta só permite escolher o
             modelo na própria interface (ex.: ``/models``). O orctl então mostra
             o modelo escolhido e como aplicá-lo, em vez de passar por flag/env.
+        clear_env: Variáveis de ambiente que devem ser esvaziadas ao rodar, para
+            evitar conflito (ex.: o Claude Code exige ``ANTHROPIC_API_KEY`` vazia
+            quando se autentica via ``ANTHROPIC_AUTH_TOKEN``).
     """
 
     key: str
@@ -71,6 +77,7 @@ class AIInterface:
     homepage: str
     env_keys: tuple[str, ...] = field(default_factory=tuple)
     base_url_env: str | None = None
+    base_url: str | None = None
     run_args: tuple[str, ...] = field(default_factory=tuple)
     install_script: str | None = None
     setup_hint: str | None = None
@@ -78,6 +85,7 @@ class AIInterface:
     model_env: str | None = None
     model_prefix: str = ""
     model_select_in_app: bool = False
+    clear_env: tuple[str, ...] = field(default_factory=tuple)
 
     def model_ref(self, model_id: str) -> str:
         """Devolve o id do modelo no formato que esta ferramenta espera."""

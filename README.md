@@ -72,6 +72,13 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 | `cline`    | [Cline](https://github.com/cline/cline) | npm | OpenRouter nativo |
 | `opencode` | [opencode](https://opencode.ai) | script oficial (`curl \| bash`, pede confirmação) | OpenRouter via base_url |
 | `openclaw` | [OpenClaw](https://github.com/openclaw/openclaw) | npm | 1ª vez: rodar `openclaw onboard` (o orctl mostra o comando) |
+| `claudecode` | [Claude Code](https://docs.claude.com/claude-code) | npm | Fala o protocolo Anthropic; otimizado p/ modelos Anthropic |
+
+> **Claude Code + OpenRouter:** usa as variáveis da Anthropic, não o padrão
+> OpenAI — `ANTHROPIC_BASE_URL=https://openrouter.ai/api` (sem `/v1`),
+> `ANTHROPIC_AUTH_TOKEN` com a chave do OpenRouter e `ANTHROPIC_API_KEY` vazia.
+> O orctl monta isso sozinho. Se você já estava logado com conta Anthropic, rode
+> `/logout` uma vez para evitar conflito. Funciona melhor com modelos Anthropic.
 
 Adicionar uma nova interface é só registrar uma `AIInterface` em
 [orctl/interfaces/registry.py](orctl/interfaces/registry.py) — o núcleo não muda.
