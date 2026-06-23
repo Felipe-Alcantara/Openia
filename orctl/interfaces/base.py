@@ -69,6 +69,7 @@ class AIInterface:
         supports_subscription: Quando ``True``, a ferramenta também pode rodar
             com a autenticação própria dela (ex.: login de assinatura do Claude
             Code), sem usar o OpenRouter. O orctl então oferece os dois modos.
+        emoji: Ícone exibido ao lado do nome no menu (apresentação).
     """
 
     key: str
@@ -90,6 +91,7 @@ class AIInterface:
     model_select_in_app: bool = False
     clear_env: tuple[str, ...] = field(default_factory=tuple)
     supports_subscription: bool = False
+    emoji: str = "🤖"
 
     def model_ref(self, model_id: str) -> str:
         """Devolve o id do modelo no formato que esta ferramenta espera."""

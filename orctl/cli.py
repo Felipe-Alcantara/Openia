@@ -18,7 +18,7 @@ import sys
 
 import typer
 
-from . import config, models, runner
+from . import config, models, runner, ui
 from .interfaces import registry
 from .interfaces.base import AIInterface, Ecosystem
 
@@ -95,16 +95,16 @@ def _show_setup_hint(iface: AIInterface) -> None:
 
 
 def _pick_from(titulo: str, itens: list[str]) -> int | None:
-    """Mostra uma lista numerada e devolve o índice escolhido (ou None p/ voltar)."""
-    typer.secho(f"\n{titulo}", bold=True)
+    """Mostra uma lista numerada estilizada; devolve o índice (ou None p/ voltar)."""
+    ui.section(titulo)
     for idx, item in enumerate(itens, start=1):
-        typer.echo(f"  [{idx}] {item}")
-    typer.echo("  [0] voltar/pular")
-    escolha = typer.prompt("número", type=int, default=0)
+        ui.option(idx, item)
+    ui.back_option(0, "voltar / pular")
+    escolha = ui.ask_number()
     if escolha == 0:
         return None
     if not 1 <= escolha <= len(itens):
-        typer.secho(f"opção inválida: {escolha}", fg=typer.colors.RED, err=True)
+        ui.error(f"opção inválida: {escolha}")
         return _pick_from(titulo, itens)
     return escolha - 1
 
@@ -118,12 +118,12 @@ def _choose_model(iface: AIInterface) -> str | None:
     try:
         catalogo = models.load_models()
     except models.CatalogError as exc:
-        typer.secho(f"não deu para listar modelos: {exc}", fg=typer.colors.YELLOW, err=True)
-        typer.echo("seguindo sem escolher modelo (a ferramenta usa o padrão dela).")
+        ui.warn(f"não deu para listar modelos: {exc}")
+        ui.info("seguindo sem escolher modelo (a ferramenta usa o padrão dela).")
         return None
 
     vendors = models.vendors(catalogo)
-    v_idx = _pick_from("Escolha a empresa:", vendors)
+    v_idx = _pick_from("🏢 Escolha a empresa:", vendors)
     if v_idx is None:
         return None
     vendor = vendors[v_idx]
@@ -131,7 +131,7 @@ def _choose_model(iface: AIInterface) -> str | None:
     candidatos = models.models_of(catalogo, vendor)
     rotulos = [f"{_price_label(m)}  {m.name}  ({m.id})" for m in candidatos]
     m_idx = _pick_from(
-        f"Modelos de {vendor} (do mais caro ao mais barato, preço de saída/M tokens):",
+        f"🧬 Modelos de {vendor} (do mais caro ao mais barato, US$/M tokens de saída):",
         rotulos,
     )
     if m_idx is None:
@@ -156,16 +156,11 @@ def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | N
     if not model_id:
         return None
     if iface.supports_model_selection():
-        typer.secho(f"modelo: {iface.model_ref(model_id)} (aplicado automaticamente)",
-                    fg=typer.colors.GREEN)
+        ui.success(f"modelo: {iface.model_ref(model_id)} (aplicado automaticamente)")
         return model_id
     # Seleção dentro do app: instruir, não passar flag que pode não funcionar.
-    typer.secho(
-        f"\n{iface.name} escolhe o modelo na própria interface. "
-        f"Use este modelo lá dentro:",
-        fg=typer.colors.YELLOW,
-    )
-    typer.echo(f"    {iface.model_ref(model_id)}")
+    ui.warn(f"{iface.name} escolhe o modelo na própria interface. Use lá dentro:")
+    typer.secho(f"      {iface.model_ref(model_id)}", fg=typer.colors.BRIGHT_WHITE, bold=True)
     return None
 
 
@@ -282,14 +277,15 @@ def _decide_mode(iface: AIInterface, subscription: bool, provider: bool) -> bool
         return False
     if provider:
         return True
-    escolha = typer.prompt(
-        f"\nComo autenticar o {iface.name}?\n"
-        "  [1] OpenRouter (sua chave)\n"
-        "  [2] Assinatura/login próprio da ferramenta\n"
-        "número",
-        type=int, default=1,
+    idx = _pick_from(
+        f"Como autenticar o {iface.name}?",
+        [
+            "🔑 OpenRouter (sua chave)",
+            "👤 Assinatura / login próprio da ferramenta",
+        ],
     )
-    return escolha != 2
+    # Voltar/None mantém o padrão mais comum (OpenRouter).
+    return idx != 1
 
 
 def _decide_model(iface: AIInterface, model: str | None, no_model: bool) -> str | None:
@@ -309,26 +305,68 @@ def main(ctx: typer.Context) -> None:
 
 
 def _interactive_menu() -> None:
-    """Menu simples: escolher uma interface, garantir chave/instalação e rodar."""
-    interfaces = registry.all_interfaces()
-    typer.secho("orctl — escolha uma interface de IA:\n", bold=True)
-    for idx, iface in enumerate(interfaces, start=1):
-        marca = "✓" if runner.is_installed(iface) else " "
-        typer.echo(f"  [{idx}] ({marca}) {iface.name} — {iface.description}")
-    typer.echo("  [0] sair\n")
+    """Menu principal em loop: tudo pelo teclado, sem precisar de flags."""
+    while True:
+        interfaces = registry.all_interfaces()
+        tem_chave = config.load_api_key() is not None
 
-    escolha = typer.prompt("número", type=int, default=0)
-    if escolha == 0:
-        raise typer.Exit()
-    if not 1 <= escolha <= len(interfaces):
-        raise _err(f"opção inválida: {escolha}")
+        ui.banner("orctl", "interfaces de IA no terminal · OpenRouter")
+        ui.section("Escolha uma interface")
+        for idx, iface in enumerate(interfaces, start=1):
+            instalada = runner.is_installed(iface)
+            status = (
+                typer.style("instalada", fg=typer.colors.GREEN)
+                if instalada else typer.style("não instalada", fg=typer.colors.BRIGHT_BLACK)
+            )
+            ui.option(idx, f"{iface.name} · {status}", emoji=iface.emoji,
+                      dim=iface.description)
 
-    iface = interfaces[escolha - 1]
+        ui.section("Configurações")
+        estado_chave = (
+            typer.style("configurada", fg=typer.colors.GREEN)
+            if tem_chave else typer.style("não configurada", fg=typer.colors.YELLOW)
+        )
+        ui.option(len(interfaces) + 1, f"Chave do OpenRouter · {estado_chave}", emoji="🔑")
+        ui.back_option(0, "sair")
 
+        escolha = ui.ask_number()
+        if escolha == 0:
+            ui.info("até a próxima! 👋", emoji="")
+            return
+        if escolha == len(interfaces) + 1:
+            _menu_set_key()
+            continue
+        if not 1 <= escolha <= len(interfaces):
+            ui.error(f"opção inválida: {escolha}")
+            continue
+
+        _run_interface_flow(interfaces[escolha - 1])
+
+
+def _menu_set_key() -> None:
+    """Configura a chave do OpenRouter sem sair do menu."""
+    chave = typer.prompt(typer.style("🔑 Cole sua chave do OpenRouter", fg=typer.colors.CYAN),
+                         hide_input=True)
+    try:
+        path, warning = config.save_api_key(chave)
+    except ValueError as exc:
+        ui.error(str(exc))
+        return
+    ui.success(f"chave salva em {path}.")
+    if warning:
+        ui.warn(warning)
+
+
+def _run_interface_flow(iface: AIInterface) -> None:
+    """Instala (se preciso), escolhe modo/modelo e roda a interface escolhida."""
     if not runner.is_installed(iface):
-        if not typer.confirm(f"{iface.name} não está instalada. Instalar agora?", default=True):
-            raise typer.Exit()
-        _install_with_consent(iface)
+        ui.warn(f"{iface.name} ainda não está instalada.")
+        if not typer.confirm("  instalar agora?", default=True):
+            return
+        try:
+            _install_with_consent(iface)
+        except typer.Exit:
+            return
         _show_setup_hint(iface)
 
     use_provider = _decide_mode(iface, subscription=False, provider=False)
@@ -336,21 +374,24 @@ def _interactive_menu() -> None:
     api_key = None
     model_id = None
     if use_provider:
-        api_key = _ensure_key()
-        if typer.confirm("Escolher o modelo agora (empresa → modelo)?", default=True):
+        if config.load_api_key() is None:
+            ui.warn("você ainda não configurou a chave do OpenRouter.")
+            _menu_set_key()
+            if config.load_api_key() is None:
+                return
+        api_key = config.load_api_key()
+        if typer.confirm("  escolher o modelo agora (empresa → modelo)?", default=True):
             model_id = _apply_or_explain_model(iface, _choose_model(iface))
     else:
-        typer.secho(
-            f"usando a autenticação própria do {iface.name} (sem OpenRouter).",
-            fg=typer.colors.GREEN,
-        )
+        ui.success(f"usando a autenticação própria do {iface.name} (sem OpenRouter).")
 
-    typer.secho(f"\niniciando {iface.name} …\n", fg=typer.colors.GREEN)
+    ui.banner(f"{iface.emoji}  iniciando {iface.name}")
     try:
-        code = runner.run(iface, api_key, model_id=model_id, use_provider=use_provider)
+        runner.run(iface, api_key, model_id=model_id, use_provider=use_provider)
     except runner.ToolingError as exc:
-        raise _err(str(exc)) from exc
-    raise typer.Exit(code=code)
+        ui.error(str(exc))
+        return
+    ui.info("a sessão terminou — voltando ao menu.", emoji="↩️")
 
 
 def entrypoint() -> None:

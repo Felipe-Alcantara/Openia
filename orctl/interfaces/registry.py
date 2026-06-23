@@ -18,6 +18,7 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 _INTERFACES: tuple[AIInterface, ...] = (
     AIInterface(
         key="orchat",
+        emoji="💬",
         name="OrChat",
         description="Chat rico no terminal: streaming, contagem de tokens e resumo de conversa.",
         ecosystem=Ecosystem.PYTHON,
@@ -30,6 +31,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     ),
     AIInterface(
         key="aichat",
+        emoji="💬",
         name="aichat",
         description="CLI/REPL de chat genérica e leve; aceita qualquer provedor OpenAI-compatível.",
         ecosystem=Ecosystem.PYTHON,
@@ -44,6 +46,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     ),
     AIInterface(
         key="llm",
+        emoji="💬",
         name="llm (Simon Willison)",
         description="CLI de LLM extensível, com plugins, logs em SQLite e modo conversa.",
         ecosystem=Ecosystem.PYTHON,
@@ -58,6 +61,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     # --- Agentes de código (leem/editam arquivos e rodam comandos) ---
     AIInterface(
         key="cline",
+        emoji="🛠️",
         name="Cline",
         description="Agente de código autônomo no terminal; provider OpenRouter nativo.",
         ecosystem=Ecosystem.NODE,
@@ -70,6 +74,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     ),
     AIInterface(
         key="opencode",
+        emoji="🛠️",
         name="opencode",
         description="Agente de código no terminal; OpenRouter via base_url OpenAI-compatível.",
         ecosystem=Ecosystem.SCRIPT,
@@ -84,6 +89,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     ),
     AIInterface(
         key="openclaw",
+        emoji="🦞",
         name="OpenClaw",
         description="Assistente/agente autônomo com suporte nativo a OpenRouter.",
         ecosystem=Ecosystem.NODE,
@@ -103,6 +109,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
     ),
     AIInterface(
         key="claudecode",
+        emoji="🧠",
         name="Claude Code",
         description="Agente de código da Anthropic; fala o protocolo Anthropic com o OpenRouter.",
         ecosystem=Ecosystem.NODE,

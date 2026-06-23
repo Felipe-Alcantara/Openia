@@ -13,15 +13,33 @@ instalar, guardar a chave com segurança e iniciar a interface certa.
 
 ### Como rodar
 
-Forma mais simples (instala dependências e abre o menu para escolher tudo):
+Um comando só — ele instala o que precisa e abre o **menu interativo**:
 
 ```bash
 python start_app.py
 ```
 
-- `python start_app.py key` — configura sua chave do OpenRouter (gere em https://openrouter.ai/keys)
-- `python start_app.py list` — lista as interfaces suportadas
-- `python start_app.py --no-install` — pula a instalação de dependências
+Tudo é feito pelo menu, sem precisar decorar comando nenhum: escolher a
+interface, configurar a chave do OpenRouter (gere em https://openrouter.ai/keys),
+escolher como autenticar e qual modelo usar. Depois que a sessão termina, você
+volta ao menu. Para sair, escolha `0`.
+
+```
+╭──────────────────────────────────────────────────────────────╮
+│                            orctl                             │
+│          interfaces de IA no terminal · OpenRouter           │
+╰──────────────────────────────────────────────────────────────╯
+
+ Escolha uma interface
+ ──────────────────────────────────────────────────────────────
+  [1] 💬 OrChat · não instalada
+  ...
+  [7] 🧠 Claude Code · instalada
+
+ Configurações
+  [8] 🔑 Chave do OpenRouter · configurada
+  [0] sair
+```
 
 > Não é um servidor web: por ser uma CLI interativa, o `start_app.py` não tem
 > `restart`/porta/navegador; o equivalente a "abrir o app" é abrir o menu.
@@ -37,9 +55,9 @@ Os modelos de cada empresa são listados **do mais caro ao mais barato** (preço
 de saída por milhão de tokens, mostrado em cada linha) — assim os modelos mais
 capazes tendem a ficar no topo e os `free` no fim.
 
-- No menu interativo ele pergunta se você quer escolher o modelo.
-- Direto: `python start_app.py run opencode -m anthropic/claude-opus-4.1`
-- Pular: `python start_app.py run opencode --no-model` (usa o padrão da ferramenta).
+Tudo isso acontece dentro do menu — ele pergunta se você quer escolher o
+modelo e mostra as listas. (Quem preferir linha de comando ainda pode usar
+`run <interface> -m <empresa/modelo>` ou `--no-model`, mas não é necessário.)
 
 Como cada CLI aceita o modelo de um jeito, o orctl é honesto sobre isso:
 
