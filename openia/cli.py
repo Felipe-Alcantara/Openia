@@ -45,6 +45,14 @@ def _mask(key: str) -> str:
     return f"{key[:8]}…{key[-4:]}"
 
 
+class _Cancelado(Exception):
+    """Sinaliza que o usuário escolheu voltar/cancelar num sub-passo do menu.
+
+    Propaga até o fluxo da interface, que então retorna ao menu principal em vez
+    de avançar. Evita tratar 'voltar' (0) como uma escolha implícita.
+    """
+
+
 def _resolve(interface_key: str) -> AIInterface:
     try:
         return registry.get(interface_key)
@@ -315,8 +323,9 @@ def _decide_mode(iface: AIInterface, subscription: bool, provider: bool) -> bool
             "👤 Assinatura / login próprio da ferramenta",
         ],
     )
-    # Voltar/None mantém o padrão mais comum (OpenRouter).
-    return idx != 1
+    if idx is None:  # escolheu voltar
+        raise _Cancelado
+    return idx == 0  # [1] OpenRouter → provider; [2] assinatura → False
 
 
 def _decide_model(iface: AIInterface, model: str | None, no_model: bool) -> str | None:
@@ -521,15 +530,26 @@ def _menu_statusline() -> None:
 
 
 def _run_interface_flow(iface: AIInterface) -> None:
-    """Instala (se preciso), escolhe modo/modelo e roda a interface escolhida."""
+    """Instala (se preciso), escolhe modo/modelo e roda a interface escolhida.
+
+    Qualquer 'voltar' (0) num sub-passo cancela o fluxo e retorna ao menu, em
+    vez de avançar — sinalizado por ``_Cancelado``.
+    """
+    try:
+        _run_interface_flow_inner(iface)
+    except _Cancelado:
+        ui.info("voltando ao menu.", emoji="↩️")
+
+
+def _run_interface_flow_inner(iface: AIInterface) -> None:
     if not runner.is_installed(iface):
         ui.warn(f"{iface.name} ainda não está instalada.")
         if not typer.confirm("  instalar agora?", default=True):
-            return
+            raise _Cancelado
         try:
             _install_with_consent(iface)
         except typer.Exit:
-            return
+            raise _Cancelado
         _show_setup_hint(iface)
 
     use_provider = _decide_mode(iface, subscription=False, provider=False)
@@ -541,7 +561,7 @@ def _run_interface_flow(iface: AIInterface) -> None:
             ui.warn("você ainda não cadastrou nenhuma chave do OpenRouter.")
             _key_add_flow()
             if config.load_api_key() is None:
-                return
+                raise _Cancelado
         api_key = config.load_api_key()
         if typer.confirm("  escolher o modelo agora (empresa → modelo)?", default=True):
             model_id = _apply_or_explain_model(iface, _choose_model(iface))

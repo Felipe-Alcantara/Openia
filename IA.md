@@ -66,6 +66,10 @@ instalação por SO, gate de consentimento de script).
 - Modo assinatura: `run claudecode --subscription` monta o comando `claude` sem nenhuma var `ANTHROPIC_*`, mesmo com `ANTHROPIC_API_KEY` exportada no shell. ✓
 - Multiplataforma: montagem de comando validada para Windows (PowerShell `irm|iex`, `npm.cmd`) e Unix (`curl|sh`, `npm`) via patch de `os.name`; 30 testes. ✓
 
+## Bugs corrigidos
+
+- **"0 nunca voltava":** ao escolher voltar (0) em sub-passos como "como autenticar", o `None` de `_pick_from` era tratado como escolha e o fluxo avançava. Agora `_decide_mode` levanta `_Cancelado` no voltar, capturado em `_run_interface_flow`, retornando ao menu. Testes em `tests/test_cli.py`.
+
 ## Riscos e limites conhecidos
 
 - O caminho `run` foi validado de ponta a ponta com `opencode` (já instalado na
