@@ -188,14 +188,16 @@ def key_set(
         None, help="A chave do OpenRouter. Se omitida, é pedida sem ecoar na tela."
     ),
 ) -> None:
-    """Grava a chave do OpenRouter no .env local (chmod 600)."""
+    """Grava a chave do OpenRouter no .env local (permissão restrita no Unix)."""
     if not chave:
         chave = typer.prompt("Chave do OpenRouter", hide_input=True)
     try:
-        path = config.save_api_key(chave)
+        path, warning = config.save_api_key(chave)
     except ValueError as exc:
         raise _err(str(exc)) from exc
-    typer.secho(f"chave salva em {path} (permissão 600).", fg=typer.colors.GREEN)
+    typer.secho(f"chave salva em {path}.", fg=typer.colors.GREEN)
+    if warning:
+        typer.secho(f"atenção: {warning}", fg=typer.colors.YELLOW)
 
 
 @key_app.command("show")
@@ -235,23 +237,59 @@ def run(
     no_model: bool = typer.Option(
         False, "--no-model", help="Não escolher modelo; usa o padrão da ferramenta."
     ),
+    subscription: bool = typer.Option(
+        False, "--subscription",
+        help="Rodar na autenticação própria da ferramenta (ex.: assinatura do Claude Code).",
+    ),
+    provider: bool = typer.Option(
+        False, "--provider", help="Rodar via OpenRouter (padrão para a maioria)."
+    ),
 ) -> None:
     """Roda a interface (instala antes, se necessário). Args extras vão para a CLI."""
     iface = _resolve(interface)
-    api_key = _ensure_key()
 
     if not runner.is_installed(iface):
         typer.echo(f"{iface.name} não instalada; instalando antes de rodar …")
         _install_with_consent(iface)
         _show_setup_hint(iface)
 
-    model_id = _decide_model(iface, model=model, no_model=no_model)
+    use_provider = _decide_mode(iface, subscription=subscription, provider=provider)
+
+    api_key = _ensure_key() if use_provider else None
+    model_id = _decide_model(iface, model=model, no_model=no_model) if use_provider else None
 
     try:
-        code = runner.run(iface, api_key, extra_args=list(ctx.args), model_id=model_id)
+        code = runner.run(
+            iface, api_key, extra_args=list(ctx.args),
+            model_id=model_id, use_provider=use_provider,
+        )
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
     raise typer.Exit(code=code)
+
+
+def _decide_mode(iface: AIInterface, subscription: bool, provider: bool) -> bool:
+    """Decide se roda via OpenRouter (True) ou na autenticação própria (False).
+
+    Flags explícitas vencem. Se a ferramenta não suporta assinatura, é sempre
+    provider. Caso suporte e nada tenha sido dito, pergunta ao usuário.
+    """
+    if not iface.supports_subscription:
+        return True
+    if subscription and provider:
+        raise _err("escolha apenas um: --subscription ou --provider.")
+    if subscription:
+        return False
+    if provider:
+        return True
+    escolha = typer.prompt(
+        f"\nComo autenticar o {iface.name}?\n"
+        "  [1] OpenRouter (sua chave)\n"
+        "  [2] Assinatura/login próprio da ferramenta\n"
+        "número",
+        type=int, default=1,
+    )
+    return escolha != 2
 
 
 def _decide_model(iface: AIInterface, model: str | None, no_model: bool) -> str | None:
@@ -286,7 +324,6 @@ def _interactive_menu() -> None:
         raise _err(f"opção inválida: {escolha}")
 
     iface = interfaces[escolha - 1]
-    api_key = _ensure_key()
 
     if not runner.is_installed(iface):
         if not typer.confirm(f"{iface.name} não está instalada. Instalar agora?", default=True):
@@ -294,13 +331,23 @@ def _interactive_menu() -> None:
         _install_with_consent(iface)
         _show_setup_hint(iface)
 
+    use_provider = _decide_mode(iface, subscription=False, provider=False)
+
+    api_key = None
     model_id = None
-    if typer.confirm("Escolher o modelo agora (empresa → modelo)?", default=True):
-        model_id = _apply_or_explain_model(iface, _choose_model(iface))
+    if use_provider:
+        api_key = _ensure_key()
+        if typer.confirm("Escolher o modelo agora (empresa → modelo)?", default=True):
+            model_id = _apply_or_explain_model(iface, _choose_model(iface))
+    else:
+        typer.secho(
+            f"usando a autenticação própria do {iface.name} (sem OpenRouter).",
+            fg=typer.colors.GREEN,
+        )
 
     typer.secho(f"\niniciando {iface.name} …\n", fg=typer.colors.GREEN)
     try:
-        code = runner.run(iface, api_key, model_id=model_id)
+        code = runner.run(iface, api_key, model_id=model_id, use_provider=use_provider)
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
     raise typer.Exit(code=code)

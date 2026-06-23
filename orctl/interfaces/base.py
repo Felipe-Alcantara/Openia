@@ -66,6 +66,9 @@ class AIInterface:
         clear_env: Variáveis de ambiente que devem ser esvaziadas ao rodar, para
             evitar conflito (ex.: o Claude Code exige ``ANTHROPIC_API_KEY`` vazia
             quando se autentica via ``ANTHROPIC_AUTH_TOKEN``).
+        supports_subscription: Quando ``True``, a ferramenta também pode rodar
+            com a autenticação própria dela (ex.: login de assinatura do Claude
+            Code), sem usar o OpenRouter. O orctl então oferece os dois modos.
     """
 
     key: str
@@ -86,6 +89,7 @@ class AIInterface:
     model_prefix: str = ""
     model_select_in_app: bool = False
     clear_env: tuple[str, ...] = field(default_factory=tuple)
+    supports_subscription: bool = False
 
     def model_ref(self, model_id: str) -> str:
         """Devolve o id do modelo no formato que esta ferramenta espera."""

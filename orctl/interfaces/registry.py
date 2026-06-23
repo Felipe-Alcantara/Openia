@@ -124,6 +124,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
             "rode /logout uma vez dentro do Claude Code para evitar conflito "
             "com o token do OpenRouter. Confira a conexão com /status."
         ),
+        # Também pode rodar na assinatura Anthropic (login OAuth), sem OpenRouter.
+        supports_subscription=True,
     ),
 )
 

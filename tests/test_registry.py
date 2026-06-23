@@ -73,3 +73,9 @@ def test_claudecode_usa_base_url_sem_v1():
     iface = registry.get("claudecode")
     assert iface.base_url == "https://openrouter.ai/api"
     assert "ANTHROPIC_API_KEY" in iface.clear_env
+
+
+def test_claudecode_suporta_assinatura():
+    assert registry.get("claudecode").supports_subscription is True
+    # As demais não suportam (padrão).
+    assert registry.get("opencode").supports_subscription is False

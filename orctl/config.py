@@ -77,17 +77,30 @@ def validate_api_key(key: str) -> str:
     return key
 
 
-def save_api_key(key: str) -> Path:
-    """Persiste a chave no .env com permissão 0600. Retorna o caminho gravado."""
+def save_api_key(key: str) -> tuple[Path, str | None]:
+    """Persiste a chave no .env. Retorna (caminho, aviso).
+
+    No Unix aplica permissão 0600 (só o dono lê/escreve). No Windows as
+    permissões POSIX não se aplicam, então não há proteção por chmod; nesse caso
+    o aviso explica isso em vez de fingir que o arquivo está restrito.
+    """
     key = validate_api_key(key)
     content = (
         "# Arquivo gerado pelo orctl. NÃO versionar.\n"
         f"{ENV_VAR}={key}\n"
     )
     _ENV_PATH.write_text(content, encoding="utf-8")
-    # 0600: somente o dono lê e escreve.
-    _ENV_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    return _ENV_PATH
+
+    warning: str | None = None
+    if os.name == "nt":
+        warning = (
+            "no Windows o arquivo não fica protegido por permissão de SO; "
+            "mantenha esta pasta privada e confie no .gitignore para não versioná-lo."
+        )
+    else:
+        # 0600: somente o dono lê e escreve.
+        _ENV_PATH.chmod(stat.S_IRUSR | stat.S_IWUSR)
+    return _ENV_PATH, warning
 
 
 def build_run_env(interface: AIInterface, api_key: str) -> dict[str, str]:

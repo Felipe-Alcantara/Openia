@@ -78,11 +78,19 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 | `openclaw` | [OpenClaw](https://github.com/openclaw/openclaw) | npm | 1ª vez: rodar `openclaw onboard` (o orctl mostra o comando) |
 | `claudecode` | [Claude Code](https://docs.claude.com/claude-code) | npm | Fala o protocolo Anthropic; otimizado p/ modelos Anthropic |
 
-> **Claude Code + OpenRouter:** usa as variáveis da Anthropic, não o padrão
-> OpenAI — `ANTHROPIC_BASE_URL=https://openrouter.ai/api` (sem `/v1`),
-> `ANTHROPIC_AUTH_TOKEN` com a chave do OpenRouter e `ANTHROPIC_API_KEY` vazia.
-> O orctl monta isso sozinho. Se você já estava logado com conta Anthropic, rode
-> `/logout` uma vez para evitar conflito. Funciona melhor com modelos Anthropic.
+> **Claude Code — dois modos:** ao iniciar, o orctl pergunta como autenticar:
+>
+> - **OpenRouter** — usa as variáveis da Anthropic (não o padrão OpenAI):
+>   `ANTHROPIC_BASE_URL=https://openrouter.ai/api` (sem `/v1`),
+>   `ANTHROPIC_AUTH_TOKEN` com a chave do OpenRouter e `ANTHROPIC_API_KEY` vazia.
+>   O orctl monta isso sozinho. Funciona melhor com modelos Anthropic.
+> - **Assinatura** — roda o Claude Code com o login da sua conta Anthropic
+>   (Pro/Max), sem OpenRouter. O orctl remove as variáveis `ANTHROPIC_*` do
+>   ambiente para não atrapalhar o login.
+>
+> Direto: `run claudecode --subscription` ou `run claudecode --provider`.
+> Se você alterna entre os dois, pode precisar de `/login` ou `/logout` dentro
+> do Claude Code; confirme com `/status`.
 
 Adicionar uma nova interface é só registrar uma `AIInterface` em
 [orctl/interfaces/registry.py](orctl/interfaces/registry.py) — o núcleo não muda.
@@ -90,9 +98,19 @@ Adicionar uma nova interface é só registrar uma `AIInterface` em
 ### Segurança da chave
 
 - A chave **nunca** entra no código nem em arquivo versionado.
-- É gravada em `orctl/.env` com permissão `600` e está no `.gitignore`.
+- É gravada em `orctl/.env` e está no `.gitignore`.
+- No Linux/macOS o arquivo recebe permissão `600` (só o dono lê/escreve). No
+  Windows as permissões POSIX não se aplicam, então o orctl avisa que o arquivo
+  não fica protegido por permissão — mantenha a pasta privada.
 - Na execução, é repassada à CLI por variável de ambiente (não por argumento).
 - Uma variável `OPENROUTER_API_KEY` já exportada tem prioridade sobre o arquivo.
+
+### Multiplataforma
+
+Funciona em Linux, macOS e Windows: o launcher usa `sys.executable` e só
+biblioteca padrão; o `npm` vira `npm.cmd` no Windows; instaladores via script
+usam `curl | sh` no Unix e PowerShell (`irm | iex`) no Windows. Quando um
+pré-requisito falta (npm, curl, PowerShell), a mensagem diz o que instalar.
 
 ### Testes
 

@@ -6,6 +6,7 @@ restrita, e injetar a chave nas variáveis certas sem vazar.
 
 from __future__ import annotations
 
+import os
 import stat
 
 import pytest
@@ -39,12 +40,16 @@ def test_validate_aceita_chave_openrouter():
     assert config.validate_api_key(f"  {VALID_KEY}  ") == VALID_KEY
 
 
-def test_save_grava_com_permissao_600():
-    path = config.save_api_key(VALID_KEY)
+def test_save_grava_com_permissao_restrita_no_unix():
+    path, warning = config.save_api_key(VALID_KEY)
     assert path.exists()
-    mode = stat.S_IMODE(path.stat().st_mode)
-    assert mode == 0o600, f"esperado 0600, veio {oct(mode)}"
     assert VALID_KEY in path.read_text(encoding="utf-8")
+    if os.name != "nt":
+        mode = stat.S_IMODE(path.stat().st_mode)
+        assert mode == 0o600, f"esperado 0600, veio {oct(mode)}"
+        assert warning is None
+    else:
+        assert warning is not None  # Windows não protege por permissão
 
 
 def test_load_le_do_arquivo():
