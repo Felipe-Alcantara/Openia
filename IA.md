@@ -19,6 +19,7 @@ Responsabilidades separadas em camadas finas:
 - `orctl/config.py` — chave do OpenRouter e montagem do ambiente de execução.
 - `orctl/runner.py` — instalar / detectar / executar (isola pip, npm e SO).
 - `orctl/cli.py` — interface do usuário (Typer): `list`, `key`, `install`, `run` e menu.
+- `start_app.py` — ponto de entrada único (contrato GUIA-START-APP-SCRIPT): instala dependências e abre o menu. Adaptado para CLI (sem porta/restart/navegador, com justificativa no cabeçalho).
 
 ## Decisões tomadas
 
@@ -38,6 +39,9 @@ permissão 600, prioridade de env var, montagem de ambiente, registro de interfa
 - `key show` exibe a chave mascarada. ✓
 - `git check-ignore orctl/.env` confirma que o segredo está ignorado. ✓
 - `list` mostra as 3 interfaces com status de instalação. ✓
+- `python start_app.py --no-install list` e `key show` repassam ao orctl. ✓
+- `start_app.py` abre o menu interativo e sai limpo (exit 0). ✓
+- Detecção de dependência ausente (`missing_deps`) dispara o `pip install`. ✓
 
 ## Riscos e limites conhecidos
 

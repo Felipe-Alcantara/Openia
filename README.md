@@ -11,18 +11,28 @@ abrir uma CLI de IA de terminal já configurada com sua chave do OpenRouter.
 A escolha do **modelo** acontece dentro de cada ferramenta; o `orctl` cuida de
 instalar, guardar a chave com segurança e iniciar a interface certa.
 
-### Setup
+### Como rodar
+
+Forma mais simples (instala dependências e abre o menu para escolher tudo):
 
 ```bash
-# 1. dependências (uma vez)
-pip install typer
+python start_app.py
+```
 
-# 2. configure sua chave do OpenRouter (gere em https://openrouter.ai/keys)
-python3 -m orctl key set        # pede a chave sem mostrar na tela
+- `python start_app.py key` — configura sua chave do OpenRouter (gere em https://openrouter.ai/keys)
+- `python start_app.py list` — lista as interfaces suportadas
+- `python start_app.py --no-install` — pula a instalação de dependências
 
-# 3. use
+> Não é um servidor web: por ser uma CLI interativa, o `start_app.py` não tem
+> `restart`/porta/navegador; o equivalente a "abrir o app" é abrir o menu.
+
+### Uso direto (opcional)
+
+Se preferir, dá pra chamar o módulo direto (requer `pip install typer`):
+
+```bash
 python3 -m orctl                # menu interativo
-python3 -m orctl list           # lista as interfaces suportadas
+python3 -m orctl key set        # pede a chave sem mostrar na tela
 python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 ```
 
