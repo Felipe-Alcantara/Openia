@@ -14,10 +14,15 @@ from enum import Enum
 
 
 class Ecosystem(str, Enum):
-    """De onde a ferramenta é instalada/executada."""
+    """De onde a ferramenta é instalada/executada.
+
+    ``SCRIPT`` cobre ferramentas que se instalam por um instalador oficial
+    (ex.: ``curl -fsSL .../install | bash``), e não por pip/npm.
+    """
 
     PYTHON = "python"
     NODE = "node"
+    SCRIPT = "script"
 
 
 @dataclass(frozen=True)
@@ -39,6 +44,13 @@ class AIInterface:
             a ferramenta usa o protocolo compatível com OpenAI.
         homepage: Link de referência para o usuário.
         run_args: Argumentos padrão ao iniciar a ferramenta (normalmente vazio).
+        install_script: Para ``ecosystem=SCRIPT``, a URL do instalador oficial
+            baixada e executada via shell (ex.: o install.sh do opencode).
+            Ignorado nos demais ecossistemas.
+        setup_hint: Passo de configuração que o usuário precisa rodar uma vez
+            dentro da própria ferramenta quando ela não aceita a chave só por
+            variável de ambiente (ex.: ``openclaw onboard``). É mostrado, não
+            executado automaticamente, para não assumir entrada interativa.
     """
 
     key: str
@@ -51,6 +63,8 @@ class AIInterface:
     env_keys: tuple[str, ...] = field(default_factory=tuple)
     base_url_env: str | None = None
     run_args: tuple[str, ...] = field(default_factory=tuple)
+    install_script: str | None = None
+    setup_hint: str | None = None
 
     def __post_init__(self) -> None:
         if not self.key or not self.key.isidentifier():
@@ -58,7 +72,17 @@ class AIInterface:
                 f"key inválida para interface: {self.key!r} "
                 "(use um identificador simples, ex.: 'orchat')"
             )
-        if not self.package:
-            raise ValueError(f"interface {self.key!r} sem pacote definido")
         if not self.command:
             raise ValueError(f"interface {self.key!r} sem comando definido")
+        if self.ecosystem is Ecosystem.SCRIPT:
+            if not self.install_script:
+                raise ValueError(
+                    f"interface {self.key!r} usa SCRIPT mas não definiu install_script"
+                )
+            if not self.install_script.startswith("https://"):
+                raise ValueError(
+                    f"install_script de {self.key!r} deve ser uma URL https"
+                )
+        elif not self.package:
+            # pip/npm precisam de um nome de pacote.
+            raise ValueError(f"interface {self.key!r} sem pacote definido")

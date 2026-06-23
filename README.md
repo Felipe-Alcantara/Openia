@@ -40,11 +40,21 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 
 ### Interfaces suportadas
 
+**Chat:**
+
 | Chave | Ferramenta | Para quê |
 |---|---|---|
 | `orchat` | [OrChat](https://github.com/oop7/OrChat) | Chat rico: streaming, tokens, resumo |
 | `aichat` | [aichat](https://github.com/sigoden/aichat) | Chat/REPL leve, OpenAI-compatível |
 | `llm`    | [llm](https://github.com/simonw/llm) | CLI extensível com plugins e logs |
+
+**Agentes de código** (leem/editam arquivos e rodam comandos):
+
+| Chave | Ferramenta | Instalação | Observação |
+|---|---|---|---|
+| `cline`    | [Cline](https://github.com/cline/cline) | npm | OpenRouter nativo |
+| `opencode` | [opencode](https://opencode.ai) | script oficial (`curl \| bash`, pede confirmação) | OpenRouter via base_url |
+| `openclaw` | [OpenClaw](https://github.com/openclaw/openclaw) | npm | 1ª vez: rodar `openclaw onboard` (o orctl mostra o comando) |
 
 Adicionar uma nova interface é só registrar uma `AIInterface` em
 [orctl/interfaces/registry.py](orctl/interfaces/registry.py) — o núcleo não muda.

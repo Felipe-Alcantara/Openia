@@ -20,7 +20,7 @@ import typer
 
 from . import config, runner
 from .interfaces import registry
-from .interfaces.base import AIInterface
+from .interfaces.base import AIInterface, Ecosystem
 
 app = typer.Typer(
     add_completion=False,
@@ -60,6 +60,38 @@ def _ensure_key() -> str:
             "Rode 'orctl key set' ou exporte OPENROUTER_API_KEY."
         )
     return api_key
+
+
+def _install_with_consent(iface: AIInterface) -> None:
+    """Instala a interface, pedindo confirmação extra se for via script remoto.
+
+    Instaladores SCRIPT baixam e executam código remoto (curl | bash); por isso
+    exigem um "sim" explícito do usuário antes de prosseguir.
+    """
+    allow_script = False
+    if iface.ecosystem is Ecosystem.SCRIPT:
+        typer.secho(
+            f"{iface.name} instala executando um script remoto:\n"
+            f"    curl -fsSL {iface.install_script} | bash",
+            fg=typer.colors.YELLOW,
+        )
+        if not typer.confirm("Confia nessa fonte e quer continuar?", default=False):
+            raise typer.Exit()
+        allow_script = True
+    try:
+        runner.install(iface, allow_script=allow_script)
+    except runner.ToolingError as exc:
+        raise _err(str(exc)) from exc
+
+
+def _show_setup_hint(iface: AIInterface) -> None:
+    """Mostra o passo de configuração próprio da ferramenta, quando houver."""
+    if iface.setup_hint:
+        typer.secho(
+            f"\n{iface.name} precisa de um passo de configuração único:",
+            fg=typer.colors.YELLOW,
+        )
+        typer.echo(iface.setup_hint)
 
 
 @app.command("list")
@@ -109,11 +141,9 @@ def install(interface: str = typer.Argument(..., help="Chave da interface, ex.: 
         typer.echo(f"{iface.name} já está instalada.")
         return
     typer.echo(f"instalando {iface.name} …")
-    try:
-        runner.install(iface)
-    except runner.ToolingError as exc:
-        raise _err(str(exc)) from exc
+    _install_with_consent(iface)
     typer.secho(f"{iface.name} instalada.", fg=typer.colors.GREEN)
+    _show_setup_hint(iface)
 
 
 @app.command(
@@ -130,10 +160,8 @@ def run(
 
     if not runner.is_installed(iface):
         typer.echo(f"{iface.name} não instalada; instalando antes de rodar …")
-        try:
-            runner.install(iface)
-        except runner.ToolingError as exc:
-            raise _err(str(exc)) from exc
+        _install_with_consent(iface)
+        _show_setup_hint(iface)
 
     try:
         code = runner.run(iface, api_key, extra_args=list(ctx.args))
@@ -171,10 +199,8 @@ def _interactive_menu() -> None:
     if not runner.is_installed(iface):
         if not typer.confirm(f"{iface.name} não está instalada. Instalar agora?", default=True):
             raise typer.Exit()
-        try:
-            runner.install(iface)
-        except runner.ToolingError as exc:
-            raise _err(str(exc)) from exc
+        _install_with_consent(iface)
+        _show_setup_hint(iface)
 
     typer.secho(f"\niniciando {iface.name} …\n", fg=typer.colors.GREEN)
     try:

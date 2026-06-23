@@ -48,6 +48,44 @@ _INTERFACES: tuple[AIInterface, ...] = (
         env_keys=("OPENAI_API_KEY",),
         base_url_env="OPENAI_BASE_URL",
     ),
+    # --- Agentes de código (leem/editam arquivos e rodam comandos) ---
+    AIInterface(
+        key="cline",
+        name="Cline",
+        description="Agente de código autônomo no terminal; provider OpenRouter nativo.",
+        ecosystem=Ecosystem.NODE,
+        package="cline",
+        command="cline",
+        homepage="https://github.com/cline/cline",
+        env_keys=("OPENROUTER_API_KEY",),
+    ),
+    AIInterface(
+        key="opencode",
+        name="opencode",
+        description="Agente de código no terminal; OpenRouter via base_url OpenAI-compatível.",
+        ecosystem=Ecosystem.SCRIPT,
+        package="",  # instalado por script oficial, não por pip/npm
+        command="opencode",
+        homepage="https://opencode.ai",
+        install_script="https://opencode.ai/install",
+        env_keys=("OPENAI_API_KEY",),
+        base_url_env="OPENAI_API_BASE",
+    ),
+    AIInterface(
+        key="openclaw",
+        name="OpenClaw",
+        description="Assistente/agente autônomo com suporte nativo a OpenRouter.",
+        ecosystem=Ecosystem.NODE,
+        package="openclaw",
+        command="openclaw",
+        homepage="https://github.com/openclaw/openclaw",
+        env_keys=("OPENROUTER_API_KEY",),
+        setup_hint=(
+            "Na primeira vez, configure a chave rodando:\n"
+            "    openclaw onboard --auth-choice apiKey "
+            "--token-provider openrouter --token \"$OPENROUTER_API_KEY\""
+        ),
+    ),
 )
 
 _BY_KEY: dict[str, AIInterface] = {iface.key: iface for iface in _INTERFACES}

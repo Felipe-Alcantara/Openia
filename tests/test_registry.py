@@ -34,3 +34,36 @@ def test_contrato_rejeita_chave_nao_identificador():
             command="x",
             homepage="https://example.com",
         )
+
+
+def test_contrato_script_exige_install_script():
+    with pytest.raises(ValueError):
+        AIInterface(
+            key="x",
+            name="X",
+            description="x",
+            ecosystem=Ecosystem.SCRIPT,
+            package="",
+            command="x",
+            homepage="https://example.com",
+            # sem install_script
+        )
+
+
+def test_contrato_script_exige_url_https():
+    with pytest.raises(ValueError):
+        AIInterface(
+            key="x",
+            name="X",
+            description="x",
+            ecosystem=Ecosystem.SCRIPT,
+            package="",
+            command="x",
+            homepage="https://example.com",
+            install_script="ftp://exemplo/install",
+        )
+
+
+def test_agentes_de_codigo_registrados():
+    for chave in ("cline", "opencode", "openclaw"):
+        assert registry.get(chave).key == chave

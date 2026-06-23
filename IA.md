@@ -27,6 +27,9 @@ Responsabilidades separadas em camadas finas:
 - **Chave em `.env` local** (`orctl/.env`, chmod 600), no `.gitignore`. Repasse por env var ao processo filho. Env var exportada tem prioridade sobre o arquivo.
 - **Modelo escolhido dentro de cada CLI**, não no orctl (mantém o launcher simples e estável).
 - OpenRouter é OpenAI-compatível: ferramentas genéricas recebem `OPENAI_API_KEY` + base_url apontando para `https://openrouter.ai/api/v1`.
+- **Ecossistemas suportados:** PYTHON (pip), NODE (npm) e SCRIPT (instalador oficial via `curl | bash`). Instalação via SCRIPT exige consentimento explícito (`allow_script`), porque executa código remoto.
+- **setup_hint:** ferramentas que não aceitam a chave só por env var (ex.: openclaw) trazem um passo de config próprio, que o orctl **mostra** mas não executa (não assume entrada interativa).
+- **Interfaces atuais (6):** chat — orchat, aichat, llm; agentes de código — cline (npm), opencode (script), openclaw (npm + onboard).
 
 ## Testes
 
@@ -42,12 +45,16 @@ permissão 600, prioridade de env var, montagem de ambiente, registro de interfa
 - `python start_app.py --no-install list` e `key show` repassam ao orctl. ✓
 - `start_app.py` abre o menu interativo e sai limpo (exit 0). ✓
 - Detecção de dependência ausente (`missing_deps`) dispara o `pip install`. ✓
+- `run opencode --version` ponta a ponta: orctl resolve a interface, monta o ambiente com a chave e invoca o binário real (respondeu `1.17.9`, exit 0). ✓ Fecha o risco antes aberto no caminho de execução.
 
 ## Riscos e limites conhecidos
 
-- As interfaces ainda **não foram instaladas/executadas de ponta a ponta** nesta
-  máquina (só o núcleo do launcher foi validado). O fluxo `run` real depende de
-  rede e dos pacotes existirem com o nome esperado no PyPI/npm.
+- O caminho `run` foi validado de ponta a ponta com `opencode` (já instalado na
+  máquina). A **instalação** de cada ferramenta ainda não foi exercitada uma a
+  uma — depende de rede e dos pacotes existirem com o nome esperado no
+  PyPI/npm/instalador oficial.
+- `openclaw` precisa do passo `onboard` para gravar a chave; o orctl mostra o
+  comando, mas não confere se o usuário rodou.
 - Sem isolamento de instalação, atualizar uma CLI pode afetar dependências do sistema.
 
 ## Ideias para quem quiser contribuir

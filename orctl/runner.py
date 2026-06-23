@@ -34,11 +34,15 @@ def is_installed(interface: AIInterface) -> bool:
     return shutil.which(interface.command) is not None
 
 
-def install(interface: AIInterface) -> None:
-    """Instala a interface direto no sistema (pip/npm global).
+def install(interface: AIInterface, allow_script: bool = False) -> None:
+    """Instala a interface direto no sistema (pip/npm global, ou script oficial).
 
-    Levanta ``ToolingError`` com a saída do gerenciador quando a instalação
-    falha, para o chamador exibir algo acionável.
+    ``allow_script`` precisa ser ``True`` para instalar ferramentas do
+    ecossistema SCRIPT, que baixam e executam um instalador remoto via shell —
+    o chamador deve obter consentimento explícito do usuário antes.
+
+    Levanta ``ToolingError`` com a saída do instalador quando ele falha, para o
+    chamador exibir algo acionável.
     """
     if interface.ecosystem is Ecosystem.PYTHON:
         # Usa o mesmo interpretador que roda o orctl, evitando ambiguidade de pip.
@@ -46,13 +50,24 @@ def install(interface: AIInterface) -> None:
     elif interface.ecosystem is Ecosystem.NODE:
         _require("npm", "Instale o Node.js (que traz o npm) e tente de novo.")
         cmd = ["npm", "install", "--global", interface.package]
+    elif interface.ecosystem is Ecosystem.SCRIPT:
+        if not allow_script:
+            raise ToolingError(
+                f"{interface.name} instala executando um script remoto "
+                f"({interface.install_script}). Confirme antes de prosseguir."
+            )
+        _require("curl", "Instale o curl e tente de novo.")
+        _require("bash", "Instale o bash e tente de novo.")
+        # curl -fsSL <url> | bash — instalador oficial da ferramenta.
+        cmd = ["bash", "-c", f"curl -fsSL {interface.install_script} | bash"]
     else:  # pragma: no cover - enum fechado
         raise ToolingError(f"ecossistema não suportado: {interface.ecosystem}")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
+        alvo = interface.install_script or f"pacote '{interface.package}'"
         raise ToolingError(
-            f"falha ao instalar {interface.name} (pacote '{interface.package}').\n"
+            f"falha ao instalar {interface.name} ({alvo}).\n"
             f"Comando: {' '.join(cmd)}\n"
             f"{result.stderr.strip() or result.stdout.strip()}"
         )
