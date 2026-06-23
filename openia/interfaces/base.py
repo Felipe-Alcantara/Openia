@@ -55,20 +55,20 @@ class AIInterface:
             variável de ambiente (ex.: ``openclaw onboard``). É mostrado, não
             executado automaticamente, para não assumir entrada interativa.
         model_arg: Flag que define o modelo na linha de comando (ex.: ``--model``
-            ou ``-m``). Quando presente, o orctl passa ``model_arg <id>`` ao rodar.
+            ou ``-m``). Quando presente, o openia passa ``model_arg <id>`` ao rodar.
         model_env: Variável de ambiente que define o modelo, como alternativa à
             flag para CLIs que leem o modelo do ambiente.
         model_prefix: Prefixo que a ferramenta espera antes do id do OpenRouter
             (ex.: ``openrouter/`` no OpenClaw). Vazio para a maioria.
         model_select_in_app: Quando ``True``, a ferramenta só permite escolher o
-            modelo na própria interface (ex.: ``/models``). O orctl então mostra
+            modelo na própria interface (ex.: ``/models``). O openia então mostra
             o modelo escolhido e como aplicá-lo, em vez de passar por flag/env.
         clear_env: Variáveis de ambiente que devem ser esvaziadas ao rodar, para
             evitar conflito (ex.: o Claude Code exige ``ANTHROPIC_API_KEY`` vazia
             quando se autentica via ``ANTHROPIC_AUTH_TOKEN``).
         supports_subscription: Quando ``True``, a ferramenta também pode rodar
             com a autenticação própria dela (ex.: login de assinatura do Claude
-            Code), sem usar o OpenRouter. O orctl então oferece os dois modos.
+            Code), sem usar o OpenRouter. O openia então oferece os dois modos.
         emoji: Ícone exibido ao lado do nome no menu (apresentação).
     """
 
@@ -98,7 +98,7 @@ class AIInterface:
         return f"{self.model_prefix}{model_id}"
 
     def supports_model_selection(self) -> bool:
-        """Diz se o orctl consegue aplicar o modelo automaticamente."""
+        """Diz se o openia consegue aplicar o modelo automaticamente."""
         return bool(self.model_arg or self.model_env)
 
     def __post_init__(self) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from orctl import usage
+from openia import usage
 
 
 def test_remaining_calcula_saldo():

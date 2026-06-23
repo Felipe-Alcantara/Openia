@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from orctl.interfaces import registry
-from orctl.interfaces.base import AIInterface, Ecosystem
+from openia.interfaces import registry
+from openia.interfaces.base import AIInterface, Ecosystem
 
 
 def test_todas_interfaces_tem_chave_unica():

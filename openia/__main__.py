@@ -1,4 +1,4 @@
-"""Permite executar via ``python -m orctl``."""
+"""Permite executar via ``python -m openia``."""
 
 from .cli import entrypoint
 

@@ -49,7 +49,7 @@ def install(interface: AIInterface, allow_script: bool = False) -> None:
     chamador exibir algo acionável.
     """
     if interface.ecosystem is Ecosystem.PYTHON:
-        # Usa o mesmo interpretador que roda o orctl, evitando ambiguidade de pip.
+        # Usa o mesmo interpretador que roda o openia, evitando ambiguidade de pip.
         cmd = [sys.executable, "-m", "pip", "install", "--upgrade", interface.package]
     elif interface.ecosystem is Ecosystem.NODE:
         _require(NPM, "Instale o Node.js (que traz o npm) e tente de novo.")

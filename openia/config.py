@@ -2,7 +2,7 @@
 
 Decisões de segurança (ver README/IA.md):
 - As chaves nunca aparecem em código nem em arquivo versionado.
-- São persistidas em ``orctl/keys.json`` com permissão 0600 no Unix (só o dono
+- São persistidas em ``openia/keys.json`` com permissão 0600 no Unix (só o dono
   lê/escreve); no Windows isso não se aplica e o usuário é avisado.
 - Esse arquivo está no ``.gitignore``.
 - Na hora de rodar uma CLI, a chave é repassada via variável de ambiente do

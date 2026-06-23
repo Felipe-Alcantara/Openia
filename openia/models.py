@@ -97,7 +97,7 @@ def _write_cache(models: list[Model]) -> None:
 
 
 def _fetch_remote(timeout: float) -> list[Model]:
-    req = urllib.request.Request(MODELS_URL, headers={"User-Agent": "orctl"})
+    req = urllib.request.Request(MODELS_URL, headers={"User-Agent": "openia"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (URL fixa, https)
         payload = json.loads(resp.read().decode("utf-8"))
     models = _parse_models(payload)

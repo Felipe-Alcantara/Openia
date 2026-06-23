@@ -37,7 +37,7 @@ def fetch_usage(api_key: str, timeout: float = 10.0) -> Usage:
         raise UsageError("chave do OpenRouter ausente.")
     req = urllib.request.Request(
         CREDITS_URL,
-        headers={"Authorization": f"Bearer {api_key}", "User-Agent": "orctl"},
+        headers={"Authorization": f"Bearer {api_key}", "User-Agent": "openia"},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (URL fixa, https)

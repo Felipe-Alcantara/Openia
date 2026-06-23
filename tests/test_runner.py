@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from orctl import runner
-from orctl.interfaces.base import AIInterface, Ecosystem
+from openia import runner
+from openia.interfaces.base import AIInterface, Ecosystem
 
 SCRIPT_IFACE = AIInterface(
     key="exemplo_script",

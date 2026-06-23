@@ -4,11 +4,11 @@ Repositório de testes e referências sobre as melhores plataformas de IA para u
 
 ---
 
-## orctl — launcher de CLIs de IA com OpenRouter
+## openia — launcher de CLIs de IA com OpenRouter
 
-`orctl` é um pequeno programa em Python que deixa você escolher, instalar e
+`openia` é um pequeno programa em Python que deixa você escolher, instalar e
 abrir uma CLI de IA de terminal já configurada com sua chave do OpenRouter.
-A escolha do **modelo** acontece dentro de cada ferramenta; o `orctl` cuida de
+A escolha do **modelo** acontece dentro de cada ferramenta; o `openia` cuida de
 instalar, guardar a chave com segurança e iniciar a interface certa.
 
 ### Como rodar
@@ -26,7 +26,7 @@ volta ao menu. Para sair, escolha `0`.
 
 ```
 ╭──────────────────────────────────────────────────────────────╮
-│                            orctl                             │
+│                            openia                             │
 │          interfaces de IA no terminal · OpenRouter           │
 ╰──────────────────────────────────────────────────────────────╯
 
@@ -46,7 +46,7 @@ volta ao menu. Para sair, escolha `0`.
 
 ### Escolha de modelo (empresa → modelo)
 
-Antes de iniciar qualquer interface, o orctl deixa você escolher o modelo em
+Antes de iniciar qualquer interface, o openia deixa você escolher o modelo em
 dois passos: primeiro a **empresa** (Anthropic, OpenAI, Google, …), depois o
 **modelo** (a versão já vem no nome, ex.: `claude-opus-4.1`). A lista vem da API
 do OpenRouter ao vivo, com cache local de 24h.
@@ -59,23 +59,23 @@ Tudo isso acontece dentro do menu — ele pergunta se você quer escolher o
 modelo e mostra as listas. (Quem preferir linha de comando ainda pode usar
 `run <interface> -m <empresa/modelo>` ou `--no-model`, mas não é necessário.)
 
-Como cada CLI aceita o modelo de um jeito, o orctl é honesto sobre isso:
+Como cada CLI aceita o modelo de um jeito, o openia é honesto sobre isso:
 
-- **opencode** e **cline** aceitam o id do OpenRouter por flag — o orctl aplica sozinho.
+- **opencode** e **cline** aceitam o id do OpenRouter por flag — o openia aplica sozinho.
 - **orchat**, **aichat**, **llm** e **openclaw** escolhem o modelo na própria
-  interface (formato próprio) — o orctl mostra qual modelo usar lá dentro.
+  interface (formato próprio) — o openia mostra qual modelo usar lá dentro.
 
 ### Uso direto (opcional)
 
 Se preferir, dá pra chamar o módulo direto (requer `pip install typer`):
 
 ```bash
-python3 -m orctl                # menu interativo
-python3 -m orctl key set        # pede a chave sem mostrar na tela
-python3 -m orctl run orchat     # instala (se preciso) e abre a interface
+python3 -m openia                # menu interativo
+python3 -m openia key set        # pede a chave sem mostrar na tela
+python3 -m openia run orchat     # instala (se preciso) e abre a interface
 ```
 
-> Instalando o pacote (`pip install -e .`) o comando vira apenas `orctl`.
+> Instalando o pacote (`pip install -e .`) o comando vira apenas `openia`.
 
 ### Interfaces suportadas
 
@@ -93,17 +93,17 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 |---|---|---|---|
 | `cline`    | [Cline](https://github.com/cline/cline) | npm | OpenRouter nativo |
 | `opencode` | [opencode](https://opencode.ai) | script oficial (`curl \| bash`, pede confirmação) | OpenRouter via base_url |
-| `openclaw` | [OpenClaw](https://github.com/openclaw/openclaw) | npm | 1ª vez: rodar `openclaw onboard` (o orctl mostra o comando) |
+| `openclaw` | [OpenClaw](https://github.com/openclaw/openclaw) | npm | 1ª vez: rodar `openclaw onboard` (o openia mostra o comando) |
 | `claudecode` | [Claude Code](https://docs.claude.com/claude-code) | npm | Fala o protocolo Anthropic; otimizado p/ modelos Anthropic |
 
-> **Claude Code — dois modos:** ao iniciar, o orctl pergunta como autenticar:
+> **Claude Code — dois modos:** ao iniciar, o openia pergunta como autenticar:
 >
 > - **OpenRouter** — usa as variáveis da Anthropic (não o padrão OpenAI):
 >   `ANTHROPIC_BASE_URL=https://openrouter.ai/api` (sem `/v1`),
 >   `ANTHROPIC_AUTH_TOKEN` com a chave do OpenRouter e `ANTHROPIC_API_KEY` vazia.
->   O orctl monta isso sozinho. Funciona melhor com modelos Anthropic.
+>   O openia monta isso sozinho. Funciona melhor com modelos Anthropic.
 > - **Assinatura** — roda o Claude Code com o login da sua conta Anthropic
->   (Pro/Max), sem OpenRouter. O orctl remove as variáveis `ANTHROPIC_*` do
+>   (Pro/Max), sem OpenRouter. O openia remove as variáveis `ANTHROPIC_*` do
 >   ambiente para não atrapalhar o login.
 >
 > Direto: `run claudecode --subscription` ou `run claudecode --provider`.
@@ -111,7 +111,7 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 > do Claude Code; confirme com `/status`.
 
 Adicionar uma nova interface é só registrar uma `AIInterface` em
-[orctl/interfaces/registry.py](orctl/interfaces/registry.py) — o núcleo não muda.
+[openia/interfaces/registry.py](openia/interfaces/registry.py) — o núcleo não muda.
 
 ### Várias chaves nomeadas
 
@@ -123,10 +123,10 @@ uso/saldo* mostra quanto você já gastou e quanto resta na chave ativa.
 ### Segurança da chave
 
 - As chaves **nunca** entram no código nem em arquivo versionado.
-- São gravadas em `orctl/keys.json` (no `.gitignore`). Um `.env` antigo de chave
+- São gravadas em `openia/keys.json` (no `.gitignore`). Um `.env` antigo de chave
   única é migrado automaticamente.
 - No Linux/macOS o arquivo recebe permissão `600` (só o dono lê/escreve). No
-  Windows as permissões POSIX não se aplicam, então o orctl avisa — mantenha a
+  Windows as permissões POSIX não se aplicam, então o openia avisa — mantenha a
   pasta privada.
 - Na execução, a chave ativa é repassada à CLI por variável de ambiente (não por
   argumento). Uma `OPENROUTER_API_KEY` já exportada tem prioridade.
@@ -136,7 +136,7 @@ uso/saldo* mostra quanto você já gastou e quanto resta na chave ativa.
 O `/cost` nativo do Claude Code é impreciso via OpenRouter (usa preços da
 Anthropic). Pelo menu, a opção *Statusline de custo no Claude Code* configura uma
 statusline que mostra uso/saldo reais do OpenRouter na barra de status. Ela mexe
-no `~/.claude/settings.json` (global), então o orctl mostra exatamente o que será
+no `~/.claude/settings.json` (global), então o openia mostra exatamente o que será
 gravado e pede confirmação antes.
 
 ### Multiplataforma

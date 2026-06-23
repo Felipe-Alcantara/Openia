@@ -26,7 +26,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
         command="orchat",
         homepage="https://github.com/oop7/OrChat",
         env_keys=("OPENROUTER_API_KEY",),
-        # OrChat escolhe o modelo na própria interface; orctl mostra o escolhido.
+        # OrChat escolhe o modelo na própria interface; openia mostra o escolhido.
         model_select_in_app=True,
     ),
     AIInterface(
@@ -103,7 +103,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
             "--token-provider openrouter --token \"$OPENROUTER_API_KEY\""
         ),
         # OpenClaw referencia modelos como openrouter/<empresa>/<modelo>, escolhidos
-        # no onboard/UI; orctl mostra o ref pronto.
+        # no onboard/UI; openia mostra o ref pronto.
         model_prefix="openrouter/",
         model_select_in_app=True,
     ),

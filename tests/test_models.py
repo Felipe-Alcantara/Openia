@@ -9,8 +9,8 @@ import json
 
 import pytest
 
-from orctl import models
-from orctl.interfaces.base import AIInterface, Ecosystem
+from openia import models
+from openia.interfaces.base import AIInterface, Ecosystem
 
 PAYLOAD = {
     "data": [

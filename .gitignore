@@ -2,12 +2,12 @@
 /Padrão de qualidade - Felixo System Design
 
 # Segredos: as chaves do OpenRouter nunca devem ser versionadas.
-orctl/keys.json
-orctl/.env
+openia/keys.json
+openia/.env
 .env
 
 # Cache local do catálogo de modelos (gerado em runtime).
-orctl/.models_cache.json
+openia/.models_cache.json
 
 # Artefatos Python
 __pycache__/

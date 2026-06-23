@@ -1,14 +1,14 @@
-"""orctl — launcher de interfaces de IA de terminal com OpenRouter.
+"""openia — launcher de interfaces de IA de terminal com OpenRouter.
 
 Comandos:
-    orctl list                  lista as interfaces suportadas
-    orctl key set [CHAVE]       grava sua chave do OpenRouter (com segurança)
-    orctl key show              mostra se há chave configurada (mascarada)
-    orctl install <interface>   instala a interface escolhida
-    orctl run <interface> ...   roda a interface (instala antes se faltar)
-    orctl                       menu interativo para escolher e iniciar
+    openia list                  lista as interfaces suportadas
+    openia key set [CHAVE]       grava sua chave do OpenRouter (com segurança)
+    openia key show              mostra se há chave configurada (mascarada)
+    openia install <interface>   instala a interface escolhida
+    openia run <interface> ...   roda a interface (instala antes se faltar)
+    openia                       menu interativo para escolher e iniciar
 
-A escolha do modelo é feita dentro de cada CLI; o orctl cuida de instalar,
+A escolha do modelo é feita dentro de cada CLI; o openia cuida de instalar,
 configurar a chave e abrir a ferramenta certa.
 """
 
@@ -58,7 +58,7 @@ def _ensure_key() -> str:
     if not api_key:
         raise _err(
             "nenhuma chave do OpenRouter configurada. "
-            "Rode 'orctl key set' ou exporte OPENROUTER_API_KEY."
+            "Rode 'openia key set' ou exporte OPENROUTER_API_KEY."
         )
     return api_key
 
@@ -175,7 +175,7 @@ def list_interfaces() -> None:
         typer.echo(f"  ({iface.name}) — {marca}")
         typer.echo(f"      {iface.description}")
         typer.echo(f"      {iface.homepage}")
-    typer.echo("\nUse 'orctl run <chave>' para iniciar uma delas.")
+    typer.echo("\nUse 'openia run <chave>' para iniciar uma delas.")
 
 
 @key_app.command("add")
@@ -225,13 +225,13 @@ def statusline() -> None:
     """Imprime uma linha de uso/saldo do OpenRouter (usada pelo Claude Code)."""
     api_key = config.load_api_key()
     if not api_key:
-        typer.echo("orctl: sem chave")
+        typer.echo("openia: sem chave")
         return
     try:
         u = usage.fetch_usage(api_key, timeout=4.0)
     except usage.UsageError:
         # Statusline não pode travar a sessão; falha silenciosa e curta.
-        typer.echo("orctl: uso indisponível")
+        typer.echo("openia: uso indisponível")
         return
     typer.echo(usage.format_line(u))
 
@@ -341,7 +341,7 @@ def _interactive_menu() -> None:
         interfaces = registry.all_interfaces()
         ativa = config.active_key_name()
 
-        ui.banner("orctl", "interfaces de IA no terminal · OpenRouter")
+        ui.banner("openia", "interfaces de IA no terminal · OpenRouter")
         ui.section("Escolha uma interface")
         for idx, iface in enumerate(interfaces, start=1):
             instalada = runner.is_installed(iface)
@@ -482,14 +482,14 @@ def _menu_statusline() -> None:
     """Ativa a statusline de custo no Claude Code, mostrando o que muda antes.
 
     O `/cost` nativo do Claude Code usa preços da Anthropic, imprecisos via
-    OpenRouter. Esta statusline chama `orctl statusline`, que mostra uso/saldo
+    OpenRouter. Esta statusline chama `openia statusline`, que mostra uso/saldo
     reais do OpenRouter. Mexe no ~/.claude/settings.json (global), então exibe
     o que será gravado e pede confirmação, preservando o resto do arquivo.
     """
     from pathlib import Path
 
     settings_path = Path.home() / ".claude" / "settings.json"
-    comando = f"{sys.executable} -m orctl statusline"
+    comando = f"{sys.executable} -m openia statusline"
     nova_entrada = {"type": "command", "command": comando}
 
     atual: dict = {}
@@ -558,7 +558,7 @@ def _run_interface_flow(iface: AIInterface) -> None:
 
 
 def entrypoint() -> None:
-    """Ponto de entrada para ``python -m orctl`` e para o script de console."""
+    """Ponto de entrada para ``python -m openia`` e para o script de console."""
     app()
 
 

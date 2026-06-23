@@ -11,8 +11,8 @@ import stat
 
 import pytest
 
-from orctl import config
-from orctl.interfaces.base import AIInterface, Ecosystem
+from openia import config
+from openia.interfaces.base import AIInterface, Ecosystem
 
 VALID_KEY = "sk-or-v1-" + "a" * 40
 
