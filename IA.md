@@ -27,6 +27,7 @@ Responsabilidades separadas em camadas finas:
 - **Instalação direto no sistema** (pip/npm global), sem venv/pipx — escolha do usuário. Trade-off: simples, mas sem isolamento; risco de conflito entre pacotes.
 - **Chave em `.env` local** (`orctl/.env`, chmod 600), no `.gitignore`. Repasse por env var ao processo filho. Env var exportada tem prioridade sobre o arquivo.
 - **Escolha de modelo empresa → modelo** no orctl, antes de iniciar (fonte: API do OpenRouter ao vivo + cache). A "versão" vem embutida no nome do modelo (ex.: `claude-opus-4.1`), não é um terceiro nível na API.
+- **Ordenação por preço (saída) desc:** modelos de uma empresa são listados do mais caro ao mais barato, com o preço por milhão de tokens no rótulo; `free` (preço 0) vai para o fim. A API não expõe "qualidade", então preço é o proxy escolhido. Campo `completion_price` no `Model`.
 - **Aplicação do modelo é honesta por ferramenta:** quem aceita o id do OpenRouter por flag (opencode `--model`, cline `-m`) recebe automaticamente; quem usa formato próprio ou só escolhe na UI (orchat, aichat, llm, openclaw) recebe instrução de qual modelo usar. Controlado por `model_arg`/`model_env`/`model_prefix`/`model_select_in_app` no contrato.
 - OpenRouter é OpenAI-compatível: ferramentas genéricas recebem `OPENAI_API_KEY` + base_url apontando para `https://openrouter.ai/api/v1`.
 - **Ecossistemas suportados:** PYTHON (pip), NODE (npm) e SCRIPT (instalador oficial via `curl | bash`). Instalação via SCRIPT exige consentimento explícito (`allow_script`), porque executa código remoto.
@@ -62,6 +63,8 @@ permissão 600, prioridade de env var, montagem de ambiente, registro de interfa
 - `openclaw` precisa do passo `onboard` para gravar a chave; o orctl mostra o
   comando, mas não confere se o usuário rodou.
 - Sem isolamento de instalação, atualizar uma CLI pode afetar dependências do sistema.
+- Cache de modelos gravado antes do campo `completion_price` carrega com preço 0 (ordenação fica neutra) até o cache expirar (24h) ou um `force_refresh`. Não quebra; só não ordena por preço enquanto durar o cache antigo.
+- Preço como proxy de qualidade é imperfeito: um modelo novo e bom pode ser barato e cair na lista. É um critério prático, não um ranking de capacidade.
 
 ## Ideias para quem quiser contribuir
 

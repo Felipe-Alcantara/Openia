@@ -33,6 +33,10 @@ dois passos: primeiro a **empresa** (Anthropic, OpenAI, Google, …), depois o
 **modelo** (a versão já vem no nome, ex.: `claude-opus-4.1`). A lista vem da API
 do OpenRouter ao vivo, com cache local de 24h.
 
+Os modelos de cada empresa são listados **do mais caro ao mais barato** (preço
+de saída por milhão de tokens, mostrado em cada linha) — assim os modelos mais
+capazes tendem a ficar no topo e os `free` no fim.
+
 - No menu interativo ele pergunta se você quer escolher o modelo.
 - Direto: `python start_app.py run opencode -m anthropic/claude-opus-4.1`
 - Pular: `python start_app.py run opencode --no-model` (usa o padrão da ferramenta).

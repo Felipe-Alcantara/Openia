@@ -129,11 +129,21 @@ def _choose_model(iface: AIInterface) -> str | None:
     vendor = vendors[v_idx]
 
     candidatos = models.models_of(catalogo, vendor)
-    rotulos = [f"{m.name}  ({m.id})" for m in candidatos]
-    m_idx = _pick_from(f"Modelos de {vendor}:", rotulos)
+    rotulos = [f"{_price_label(m)}  {m.name}  ({m.id})" for m in candidatos]
+    m_idx = _pick_from(
+        f"Modelos de {vendor} (do mais caro ao mais barato, preço de saída/M tokens):",
+        rotulos,
+    )
     if m_idx is None:
         return None
     return candidatos[m_idx].id
+
+
+def _price_label(model: "models.Model") -> str:
+    """Rótulo de preço de saída por milhão de tokens; 'free' quando 0."""
+    if model.completion_price <= 0:
+        return "  free  "
+    return f"${model.completion_price * 1_000_000:6.2f}/M"
 
 
 def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | None:

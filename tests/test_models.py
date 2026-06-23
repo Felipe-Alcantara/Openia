@@ -14,9 +14,12 @@ from orctl.interfaces.base import AIInterface, Ecosystem
 
 PAYLOAD = {
     "data": [
-        {"id": "anthropic/claude-opus-4.1", "name": "Claude Opus 4.1"},
-        {"id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4"},
-        {"id": "google/gemini-2.5-pro", "name": "Gemini 2.5 Pro"},
+        {"id": "anthropic/claude-opus-4.1", "name": "Claude Opus 4.1",
+         "pricing": {"completion": "0.000075"}},
+        {"id": "anthropic/claude-sonnet-4", "name": "Claude Sonnet 4",
+         "pricing": {"completion": "0.000015"}},
+        {"id": "google/gemini-2.5-pro", "name": "Gemini 2.5 Pro",
+         "pricing": {"completion": "0.00001"}},
         {"id": "sem-barra", "name": "ignorar"},  # malformado: sem vendor
         {"name": "sem id"},  # sem id
     ]
@@ -38,10 +41,24 @@ def test_vendors_ordenados_e_unicos():
     assert models.vendors(parsed) == ["anthropic", "google"]
 
 
-def test_models_of_filtra_e_ordena():
+def test_models_of_ordena_por_preco_desc():
     parsed = models._parse_models(PAYLOAD)
-    nomes = [m.name for m in models.models_of(parsed, "anthropic")]
+    anthropic = models.models_of(parsed, "anthropic")
+    nomes = [m.name for m in anthropic]
+    # Opus (0.000075) é mais caro que Sonnet (0.000015), então vem primeiro.
     assert nomes == ["Claude Opus 4.1", "Claude Sonnet 4"]
+    assert anthropic[0].completion_price > anthropic[1].completion_price
+
+
+def test_modelo_sem_pricing_vai_para_o_fim():
+    payload = {
+        "data": [
+            {"id": "x/barato", "name": "Barato", "pricing": {"completion": "0.001"}},
+            {"id": "x/sem-preco", "name": "SemPreco"},  # sem pricing → 0.0
+        ]
+    }
+    ordenados = models.models_of(models._parse_models(payload), "x")
+    assert [m.name for m in ordenados] == ["Barato", "SemPreco"]
 
 
 def test_load_models_usa_cache_quando_rede_falha(tmp_path, monkeypatch):

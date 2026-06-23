@@ -33,11 +33,22 @@ class Model:
 
     ``id`` é o identificador completo (``empresa/modelo``) usado pelas CLIs.
     ``vendor`` é a parte antes da barra; ``name`` é o rótulo legível.
+    ``completion_price`` é o preço por token de saída (USD), usado para ordenar
+    do mais caro (tende a ser o mais capaz) para o mais barato.
     """
 
     id: str
     vendor: str
     name: str
+    completion_price: float = 0.0
+
+
+def _completion_price(item: dict) -> float:
+    """Extrai o preço de saída do modelo; 0.0 quando ausente ou inválido."""
+    try:
+        return float((item.get("pricing") or {}).get("completion", 0) or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _parse_models(payload: dict) -> list[Model]:
@@ -49,7 +60,14 @@ def _parse_models(payload: dict) -> list[Model]:
             continue
         vendor = model_id.split("/", 1)[0]
         name = (item.get("name") or model_id).strip()
-        models.append(Model(id=model_id, vendor=vendor, name=name))
+        models.append(
+            Model(
+                id=model_id,
+                vendor=vendor,
+                name=name,
+                completion_price=_completion_price(item),
+            )
+        )
     return models
 
 
@@ -123,5 +141,12 @@ def vendors(models: list[Model]) -> list[str]:
 
 
 def models_of(models: list[Model], vendor: str) -> list[Model]:
-    """Modelos de uma empresa, ordenados por nome."""
-    return sorted((m for m in models if m.vendor == vendor), key=lambda m: m.name)
+    """Modelos de uma empresa, do mais caro (saída) para o mais barato.
+
+    Preço alto costuma indicar modelo mais capaz, então premium fica no topo.
+    O nome desempata para manter a ordem estável entre modelos de mesmo preço.
+    """
+    return sorted(
+        (m for m in models if m.vendor == vendor),
+        key=lambda m: (-m.completion_price, m.name),
+    )
