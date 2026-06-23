@@ -5,6 +5,9 @@
 orctl/.env
 .env
 
+# Cache local do catálogo de modelos (gerado em runtime).
+orctl/.models_cache.json
+
 # Artefatos Python
 __pycache__/
 *.pyc

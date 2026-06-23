@@ -18,7 +18,7 @@ import sys
 
 import typer
 
-from . import config, runner
+from . import config, models, runner
 from .interfaces import registry
 from .interfaces.base import AIInterface, Ecosystem
 
@@ -94,6 +94,71 @@ def _show_setup_hint(iface: AIInterface) -> None:
         typer.echo(iface.setup_hint)
 
 
+def _pick_from(titulo: str, itens: list[str]) -> int | None:
+    """Mostra uma lista numerada e devolve o índice escolhido (ou None p/ voltar)."""
+    typer.secho(f"\n{titulo}", bold=True)
+    for idx, item in enumerate(itens, start=1):
+        typer.echo(f"  [{idx}] {item}")
+    typer.echo("  [0] voltar/pular")
+    escolha = typer.prompt("número", type=int, default=0)
+    if escolha == 0:
+        return None
+    if not 1 <= escolha <= len(itens):
+        typer.secho(f"opção inválida: {escolha}", fg=typer.colors.RED, err=True)
+        return _pick_from(titulo, itens)
+    return escolha - 1
+
+
+def _choose_model(iface: AIInterface) -> str | None:
+    """Fluxo empresa → modelo. Devolve o id do modelo, ou None se pular.
+
+    Carrega o catálogo do OpenRouter (com cache). Se a lista não puder ser
+    obtida, avisa e segue sem modelo, em vez de travar o início da ferramenta.
+    """
+    try:
+        catalogo = models.load_models()
+    except models.CatalogError as exc:
+        typer.secho(f"não deu para listar modelos: {exc}", fg=typer.colors.YELLOW, err=True)
+        typer.echo("seguindo sem escolher modelo (a ferramenta usa o padrão dela).")
+        return None
+
+    vendors = models.vendors(catalogo)
+    v_idx = _pick_from("Escolha a empresa:", vendors)
+    if v_idx is None:
+        return None
+    vendor = vendors[v_idx]
+
+    candidatos = models.models_of(catalogo, vendor)
+    rotulos = [f"{m.name}  ({m.id})" for m in candidatos]
+    m_idx = _pick_from(f"Modelos de {vendor}:", rotulos)
+    if m_idx is None:
+        return None
+    return candidatos[m_idx].id
+
+
+def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | None:
+    """Decide como o modelo será usado e informa o usuário.
+
+    Retorna o ``model_id`` a passar ao runner (quando aplicável por flag/env), ou
+    None quando a ferramenta só aceita escolha na própria UI — caso em que mostra
+    o ref pronto para o usuário colar lá.
+    """
+    if not model_id:
+        return None
+    if iface.supports_model_selection():
+        typer.secho(f"modelo: {iface.model_ref(model_id)} (aplicado automaticamente)",
+                    fg=typer.colors.GREEN)
+        return model_id
+    # Seleção dentro do app: instruir, não passar flag que pode não funcionar.
+    typer.secho(
+        f"\n{iface.name} escolhe o modelo na própria interface. "
+        f"Use este modelo lá dentro:",
+        fg=typer.colors.YELLOW,
+    )
+    typer.echo(f"    {iface.model_ref(model_id)}")
+    return None
+
+
 @app.command("list")
 def list_interfaces() -> None:
     """Lista todas as interfaces de IA suportadas."""
@@ -153,6 +218,13 @@ def install(interface: str = typer.Argument(..., help="Chave da interface, ex.: 
 def run(
     ctx: typer.Context,
     interface: str = typer.Argument(..., help="Chave da interface, ex.: orchat"),
+    model: str = typer.Option(
+        None, "--model", "-m",
+        help="Id do modelo (empresa/modelo). Se omitido, abre o seletor empresa→modelo.",
+    ),
+    no_model: bool = typer.Option(
+        False, "--no-model", help="Não escolher modelo; usa o padrão da ferramenta."
+    ),
 ) -> None:
     """Roda a interface (instala antes, se necessário). Args extras vão para a CLI."""
     iface = _resolve(interface)
@@ -163,11 +235,21 @@ def run(
         _install_with_consent(iface)
         _show_setup_hint(iface)
 
+    model_id = _decide_model(iface, model=model, no_model=no_model)
+
     try:
-        code = runner.run(iface, api_key, extra_args=list(ctx.args))
+        code = runner.run(iface, api_key, extra_args=list(ctx.args), model_id=model_id)
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
     raise typer.Exit(code=code)
+
+
+def _decide_model(iface: AIInterface, model: str | None, no_model: bool) -> str | None:
+    """Resolve qual modelo usar: flag explícita, seletor interativo, ou nenhum."""
+    if no_model:
+        return None
+    chosen = model if model else _choose_model(iface)
+    return _apply_or_explain_model(iface, chosen)
 
 
 @app.callback(invoke_without_command=True)
@@ -202,9 +284,13 @@ def _interactive_menu() -> None:
         _install_with_consent(iface)
         _show_setup_hint(iface)
 
+    model_id = None
+    if typer.confirm("Escolher o modelo agora (empresa → modelo)?", default=True):
+        model_id = _apply_or_explain_model(iface, _choose_model(iface))
+
     typer.secho(f"\niniciando {iface.name} …\n", fg=typer.colors.GREEN)
     try:
-        code = runner.run(iface, api_key)
+        code = runner.run(iface, api_key, model_id=model_id)
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
     raise typer.Exit(code=code)

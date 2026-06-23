@@ -17,7 +17,8 @@ Responsabilidades separadas em camadas finas:
 - `orctl/interfaces/base.py` — contrato `AIInterface` (descrição declarativa de uma CLI).
 - `orctl/interfaces/registry.py` — registro das interfaces suportadas. **Único lugar a editar para adicionar ferramenta** (Open/Closed).
 - `orctl/config.py` — chave do OpenRouter e montagem do ambiente de execução.
-- `orctl/runner.py` — instalar / detectar / executar (isola pip, npm e SO).
+- `orctl/runner.py` — instalar / detectar / executar (isola pip, npm e SO); aplica o modelo por flag/env quando a interface suporta.
+- `orctl/models.py` — catálogo de modelos do OpenRouter: busca `/api/v1/models`, agrupa por empresa, com cache local de 24h e fallback para cache em caso de falha de rede.
 - `orctl/cli.py` — interface do usuário (Typer): `list`, `key`, `install`, `run` e menu.
 - `start_app.py` — ponto de entrada único (contrato GUIA-START-APP-SCRIPT): instala dependências e abre o menu. Adaptado para CLI (sem porta/restart/navegador, com justificativa no cabeçalho).
 
@@ -25,7 +26,8 @@ Responsabilidades separadas em camadas finas:
 
 - **Instalação direto no sistema** (pip/npm global), sem venv/pipx — escolha do usuário. Trade-off: simples, mas sem isolamento; risco de conflito entre pacotes.
 - **Chave em `.env` local** (`orctl/.env`, chmod 600), no `.gitignore`. Repasse por env var ao processo filho. Env var exportada tem prioridade sobre o arquivo.
-- **Modelo escolhido dentro de cada CLI**, não no orctl (mantém o launcher simples e estável).
+- **Escolha de modelo empresa → modelo** no orctl, antes de iniciar (fonte: API do OpenRouter ao vivo + cache). A "versão" vem embutida no nome do modelo (ex.: `claude-opus-4.1`), não é um terceiro nível na API.
+- **Aplicação do modelo é honesta por ferramenta:** quem aceita o id do OpenRouter por flag (opencode `--model`, cline `-m`) recebe automaticamente; quem usa formato próprio ou só escolhe na UI (orchat, aichat, llm, openclaw) recebe instrução de qual modelo usar. Controlado por `model_arg`/`model_env`/`model_prefix`/`model_select_in_app` no contrato.
 - OpenRouter é OpenAI-compatível: ferramentas genéricas recebem `OPENAI_API_KEY` + base_url apontando para `https://openrouter.ai/api/v1`.
 - **Ecossistemas suportados:** PYTHON (pip), NODE (npm) e SCRIPT (instalador oficial via `curl | bash`). Instalação via SCRIPT exige consentimento explícito (`allow_script`), porque executa código remoto.
 - **setup_hint:** ferramentas que não aceitam a chave só por env var (ex.: openclaw) trazem um passo de config próprio, que o orctl **mostra** mas não executa (não assume entrada interativa).
@@ -46,6 +48,8 @@ permissão 600, prioridade de env var, montagem de ambiente, registro de interfa
 - `start_app.py` abre o menu interativo e sai limpo (exit 0). ✓
 - Detecção de dependência ausente (`missing_deps`) dispara o `pip install`. ✓
 - `run opencode --version` ponta a ponta: orctl resolve a interface, monta o ambiente com a chave e invoca o binário real (respondeu `1.17.9`, exit 0). ✓ Fecha o risco antes aberto no caminho de execução.
+- Catálogo ao vivo: `load_models()` trouxe 338 modelos / 55 empresas do OpenRouter e gravou cache. ✓
+- Fluxo empresa→modelo: escolha de anthropic → modelo monta `opencode --model <id>` com base_url do OpenRouter no env; para orchat (select_in_app) instrui em vez de passar flag. ✓
 
 ## Riscos e limites conhecidos
 

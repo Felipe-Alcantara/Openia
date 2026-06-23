@@ -73,11 +73,21 @@ def install(interface: AIInterface, allow_script: bool = False) -> None:
         )
 
 
-def run(interface: AIInterface, api_key: str, extra_args: list[str] | None = None) -> int:
+def run(
+    interface: AIInterface,
+    api_key: str,
+    extra_args: list[str] | None = None,
+    model_id: str | None = None,
+) -> int:
     """Executa a interface, repassando a chave via ambiente. Retorna o exit code.
 
     A chave vai pelo ambiente do processo filho (não por argumento), para não
     vazar em listagem de processos nem em histórico de shell.
+
+    Se ``model_id`` for dado e a ferramenta aceitar modelo por flag/env, ele é
+    aplicado no formato esperado por ela (ver ``AIInterface.model_ref``). Para
+    ferramentas que só escolhem o modelo na própria UI, ``model_id`` é ignorado
+    aqui (o CLI cuida de instruir o usuário).
     """
     if not is_installed(interface):
         raise ToolingError(
@@ -85,7 +95,15 @@ def run(interface: AIInterface, api_key: str, extra_args: list[str] | None = Non
         )
 
     env = build_run_env(interface, api_key)
-    cmd = [interface.command, *interface.run_args, *(extra_args or [])]
+    model_args: list[str] = []
+    if model_id and interface.supports_model_selection():
+        ref = interface.model_ref(model_id)
+        if interface.model_env:
+            env[interface.model_env] = ref
+        if interface.model_arg:
+            model_args = [interface.model_arg, ref]
+
+    cmd = [interface.command, *interface.run_args, *model_args, *(extra_args or [])]
     # Sem capturar saída: a CLI é interativa e assume o terminal do usuário.
     completed = subprocess.run(cmd, env=env)
     return completed.returncode

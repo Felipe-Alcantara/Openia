@@ -26,6 +26,23 @@ python start_app.py
 > Não é um servidor web: por ser uma CLI interativa, o `start_app.py` não tem
 > `restart`/porta/navegador; o equivalente a "abrir o app" é abrir o menu.
 
+### Escolha de modelo (empresa → modelo)
+
+Antes de iniciar qualquer interface, o orctl deixa você escolher o modelo em
+dois passos: primeiro a **empresa** (Anthropic, OpenAI, Google, …), depois o
+**modelo** (a versão já vem no nome, ex.: `claude-opus-4.1`). A lista vem da API
+do OpenRouter ao vivo, com cache local de 24h.
+
+- No menu interativo ele pergunta se você quer escolher o modelo.
+- Direto: `python start_app.py run opencode -m anthropic/claude-opus-4.1`
+- Pular: `python start_app.py run opencode --no-model` (usa o padrão da ferramenta).
+
+Como cada CLI aceita o modelo de um jeito, o orctl é honesto sobre isso:
+
+- **opencode** e **cline** aceitam o id do OpenRouter por flag — o orctl aplica sozinho.
+- **orchat**, **aichat**, **llm** e **openclaw** escolhem o modelo na própria
+  interface (formato próprio) — o orctl mostra qual modelo usar lá dentro.
+
 ### Uso direto (opcional)
 
 Se preferir, dá pra chamar o módulo direto (requer `pip install typer`):

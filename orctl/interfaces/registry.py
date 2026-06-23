@@ -25,6 +25,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
         command="orchat",
         homepage="https://github.com/oop7/OrChat",
         env_keys=("OPENROUTER_API_KEY",),
+        # OrChat escolhe o modelo na própria interface; orctl mostra o escolhido.
+        model_select_in_app=True,
     ),
     AIInterface(
         key="aichat",
@@ -36,6 +38,9 @@ _INTERFACES: tuple[AIInterface, ...] = (
         homepage="https://github.com/sigoden/aichat",
         env_keys=("OPENAI_API_KEY",),
         base_url_env="OPENAI_API_BASE",
+        # aichat usa formato próprio (provider:model), não o id cru do OpenRouter;
+        # então o modelo é aplicado por instrução, não por flag automática.
+        model_select_in_app=True,
     ),
     AIInterface(
         key="llm",
@@ -47,6 +52,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
         homepage="https://github.com/simonw/llm",
         env_keys=("OPENAI_API_KEY",),
         base_url_env="OPENAI_BASE_URL",
+        # llm registra modelos por alias na config; aplicado por instrução.
+        model_select_in_app=True,
     ),
     # --- Agentes de código (leem/editam arquivos e rodam comandos) ---
     AIInterface(
@@ -58,6 +65,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
         command="cline",
         homepage="https://github.com/cline/cline",
         env_keys=("OPENROUTER_API_KEY",),
+        # cline -m aceita o id do OpenRouter direto.
+        model_arg="-m",
     ),
     AIInterface(
         key="opencode",
@@ -70,6 +79,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
         install_script="https://opencode.ai/install",
         env_keys=("OPENAI_API_KEY",),
         base_url_env="OPENAI_API_BASE",
+        # opencode --model usa exatamente o id provider/model do OpenRouter.
+        model_arg="--model",
     ),
     AIInterface(
         key="openclaw",
@@ -85,6 +96,10 @@ _INTERFACES: tuple[AIInterface, ...] = (
             "    openclaw onboard --auth-choice apiKey "
             "--token-provider openrouter --token \"$OPENROUTER_API_KEY\""
         ),
+        # OpenClaw referencia modelos como openrouter/<empresa>/<modelo>, escolhidos
+        # no onboard/UI; orctl mostra o ref pronto.
+        model_prefix="openrouter/",
+        model_select_in_app=True,
     ),
 )
 
