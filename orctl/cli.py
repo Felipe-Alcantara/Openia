@@ -14,11 +14,12 @@ configurar a chave e abrir a ferramenta certa.
 
 from __future__ import annotations
 
+import json
 import sys
 
 import typer
 
-from . import config, models, runner, ui
+from . import config, models, runner, ui, usage
 from .interfaces import registry
 from .interfaces.base import AIInterface, Ecosystem
 
@@ -177,32 +178,62 @@ def list_interfaces() -> None:
     typer.echo("\nUse 'orctl run <chave>' para iniciar uma delas.")
 
 
-@key_app.command("set")
-def key_set(
+@key_app.command("add")
+def key_add(
+    nome: str = typer.Argument(..., help="Nome amigável da chave, ex.: pessoal"),
     chave: str = typer.Argument(
         None, help="A chave do OpenRouter. Se omitida, é pedida sem ecoar na tela."
     ),
 ) -> None:
-    """Grava a chave do OpenRouter no .env local (permissão restrita no Unix)."""
+    """Adiciona uma chave nomeada e a torna ativa."""
     if not chave:
         chave = typer.prompt("Chave do OpenRouter", hide_input=True)
     try:
-        path, warning = config.save_api_key(chave)
+        warning = config.add_key(nome, chave)
     except ValueError as exc:
         raise _err(str(exc)) from exc
-    typer.secho(f"chave salva em {path}.", fg=typer.colors.GREEN)
+    ui.success(f"chave '{nome}' salva e ativada.")
     if warning:
-        typer.secho(f"atenção: {warning}", fg=typer.colors.YELLOW)
+        ui.warn(warning)
 
 
-@key_app.command("show")
-def key_show() -> None:
-    """Mostra (mascarada) se há chave configurada e de onde vem."""
+@key_app.command("list")
+def key_list() -> None:
+    """Lista as chaves cadastradas (mascaradas), marcando a ativa."""
+    ativa = config.active_key_name()
+    chaves = config.list_keys()
+    if not chaves:
+        typer.echo("nenhuma chave cadastrada.")
+        return
+    for nk in chaves:
+        marca = "● ativa" if nk.name == ativa else "  "
+        typer.echo(f"  {marca}  {nk.name}: {_mask(nk.key)}")
+
+
+@key_app.command("use")
+def key_use(nome: str = typer.Argument(..., help="Nome da chave a ativar")) -> None:
+    """Define qual chave fica ativa."""
+    try:
+        config.set_active(nome)
+    except ValueError as exc:
+        raise _err(str(exc)) from exc
+    ui.success(f"chave ativa agora é '{nome}'.")
+
+
+@app.command("statusline", hidden=True)
+def statusline() -> None:
+    """Imprime uma linha de uso/saldo do OpenRouter (usada pelo Claude Code)."""
     api_key = config.load_api_key()
     if not api_key:
-        typer.echo("nenhuma chave configurada.")
+        typer.echo("orctl: sem chave")
         return
-    typer.echo(f"chave configurada: {_mask(api_key)}")
+    try:
+        u = usage.fetch_usage(api_key, timeout=4.0)
+    except usage.UsageError:
+        # Statusline não pode travar a sessão; falha silenciosa e curta.
+        typer.echo("orctl: uso indisponível")
+        return
+    typer.echo(usage.format_line(u))
 
 
 @app.command("install")
@@ -308,7 +339,7 @@ def _interactive_menu() -> None:
     """Menu principal em loop: tudo pelo teclado, sem precisar de flags."""
     while True:
         interfaces = registry.all_interfaces()
-        tem_chave = config.load_api_key() is not None
+        ativa = config.active_key_name()
 
         ui.banner("orctl", "interfaces de IA no terminal · OpenRouter")
         ui.section("Escolha uma interface")
@@ -323,38 +354,170 @@ def _interactive_menu() -> None:
 
         ui.section("Configurações")
         estado_chave = (
-            typer.style("configurada", fg=typer.colors.GREEN)
-            if tem_chave else typer.style("não configurada", fg=typer.colors.YELLOW)
+            typer.style(f"ativa: {ativa}", fg=typer.colors.GREEN)
+            if ativa else typer.style("nenhuma chave", fg=typer.colors.YELLOW)
         )
-        ui.option(len(interfaces) + 1, f"Chave do OpenRouter · {estado_chave}", emoji="🔑")
+        n = len(interfaces)
+        ui.option(n + 1, f"Chaves do OpenRouter · {estado_chave}", emoji="🔑")
+        ui.option(n + 2, "Ver meu uso/saldo no OpenRouter", emoji="📊")
+        ui.option(n + 3, "Statusline de custo no Claude Code", emoji="🧾")
         ui.back_option(0, "sair")
 
         escolha = ui.ask_number()
         if escolha == 0:
             ui.info("até a próxima! 👋", emoji="")
             return
-        if escolha == len(interfaces) + 1:
-            _menu_set_key()
+        if escolha == n + 1:
+            _menu_keys()
             continue
-        if not 1 <= escolha <= len(interfaces):
+        if escolha == n + 2:
+            _menu_show_usage()
+            continue
+        if escolha == n + 3:
+            _menu_statusline()
+            continue
+        if not 1 <= escolha <= n:
             ui.error(f"opção inválida: {escolha}")
             continue
 
         _run_interface_flow(interfaces[escolha - 1])
 
 
-def _menu_set_key() -> None:
-    """Configura a chave do OpenRouter sem sair do menu."""
-    chave = typer.prompt(typer.style("🔑 Cole sua chave do OpenRouter", fg=typer.colors.CYAN),
+def _menu_keys() -> None:
+    """Submenu de gestão de chaves: adicionar, ativar, renomear, remover."""
+    while True:
+        ativa = config.active_key_name()
+        chaves = config.list_keys()
+
+        ui.section("Chaves do OpenRouter")
+        for nk in chaves:
+            marca = "● " if nk.name == ativa else "  "
+            tag = typer.style("ativa", fg=typer.colors.GREEN) if nk.name == ativa else ""
+            ui.option(0, f"{marca}{nk.name}  ({_mask(nk.key)})  {tag}".rstrip(), emoji="🔑")
+        if not chaves:
+            ui.info("nenhuma chave cadastrada ainda.", emoji="")
+
+        opcoes = ["➕ Adicionar uma chave"]
+        if len(chaves) > 1:
+            opcoes.append("✅ Definir qual fica ativa")
+        if chaves:
+            opcoes += ["✏️  Renomear uma chave", "🗑️  Remover uma chave"]
+        idx = _pick_from("O que deseja fazer?", opcoes)
+        if idx is None:
+            return
+        acao = opcoes[idx]
+
+        if acao.startswith("➕"):
+            _key_add_flow()
+        elif acao.startswith("✅"):
+            _key_pick_and(lambda nome: (config.set_active(nome),
+                                        ui.success(f"'{nome}' agora é a chave ativa.")))
+        elif acao.startswith("✏️"):
+            _key_rename_flow()
+        elif acao.startswith("🗑️"):
+            _key_pick_and(lambda nome: (config.remove_key(nome),
+                                        ui.success(f"chave '{nome}' removida.")))
+
+
+def _key_add_flow() -> None:
+    """Pede nome + chave e salva."""
+    nome = typer.prompt(typer.style("✏️  Nome para esta chave (ex.: pessoal)",
+                                     fg=typer.colors.CYAN))
+    chave = typer.prompt(typer.style("🔑 Cole a chave do OpenRouter", fg=typer.colors.CYAN),
                          hide_input=True)
     try:
-        path, warning = config.save_api_key(chave)
+        warning = config.add_key(nome, chave)
     except ValueError as exc:
         ui.error(str(exc))
         return
-    ui.success(f"chave salva em {path}.")
+    ui.success(f"chave '{nome}' salva e ativada.")
     if warning:
         ui.warn(warning)
+
+
+def _key_rename_flow() -> None:
+    """Escolhe uma chave e a renomeia."""
+    chaves = config.list_keys()
+    idx = _pick_from("Renomear qual chave?", [nk.name for nk in chaves])
+    if idx is None:
+        return
+    antigo = chaves[idx].name
+    novo = typer.prompt(typer.style(f"novo nome para '{antigo}'", fg=typer.colors.CYAN))
+    try:
+        config.rename_key(antigo, novo)
+    except ValueError as exc:
+        ui.error(str(exc))
+        return
+    ui.success(f"'{antigo}' renomeada para '{novo}'.")
+
+
+def _key_pick_and(acao) -> None:
+    """Escolhe uma chave por nome e executa ``acao(nome)``, tratando erro."""
+    chaves = config.list_keys()
+    idx = _pick_from("Escolha a chave:", [nk.name for nk in chaves])
+    if idx is None:
+        return
+    try:
+        acao(chaves[idx].name)
+    except ValueError as exc:
+        ui.error(str(exc))
+
+
+def _menu_show_usage() -> None:
+    """Mostra uso/saldo da chave ativa, consultando o OpenRouter."""
+    api_key = config.load_api_key()
+    if not api_key:
+        ui.warn("configure uma chave primeiro para ver o uso.")
+        return
+    try:
+        u = usage.fetch_usage(api_key)
+    except usage.UsageError as exc:
+        ui.error(str(exc))
+        return
+    ui.section("Uso no OpenRouter (chave ativa)")
+    ui.info(usage.format_line(u), emoji="📊")
+
+
+def _menu_statusline() -> None:
+    """Ativa a statusline de custo no Claude Code, mostrando o que muda antes.
+
+    O `/cost` nativo do Claude Code usa preços da Anthropic, imprecisos via
+    OpenRouter. Esta statusline chama `orctl statusline`, que mostra uso/saldo
+    reais do OpenRouter. Mexe no ~/.claude/settings.json (global), então exibe
+    o que será gravado e pede confirmação, preservando o resto do arquivo.
+    """
+    from pathlib import Path
+
+    settings_path = Path.home() / ".claude" / "settings.json"
+    comando = f"{sys.executable} -m orctl statusline"
+    nova_entrada = {"type": "command", "command": comando}
+
+    atual: dict = {}
+    if settings_path.exists():
+        try:
+            atual = json.loads(settings_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            ui.error(f"não consegui ler {settings_path}; verifique o arquivo à mão.")
+            return
+
+    if atual.get("statusLine") == nova_entrada:
+        ui.info("a statusline já está configurada.", emoji="✅")
+        return
+
+    ui.section("Isto será gravado em ~/.claude/settings.json")
+    ui.warn("é a configuração GLOBAL do seu Claude Code, fora deste projeto.")
+    typer.echo('  "statusLine": ' + json.dumps(nova_entrada, indent=2))
+    if atual.get("statusLine"):
+        typer.echo("  (substituirá a statusLine atual)")
+
+    if not typer.confirm("  aplicar essa mudança?", default=False):
+        ui.info("nada foi alterado.", emoji="")
+        return
+
+    atual["statusLine"] = nova_entrada
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(atual, indent=2), encoding="utf-8")
+    ui.success("statusline ativada. Abra o Claude Code para ver o uso na barra.")
 
 
 def _run_interface_flow(iface: AIInterface) -> None:
@@ -375,8 +538,8 @@ def _run_interface_flow(iface: AIInterface) -> None:
     model_id = None
     if use_provider:
         if config.load_api_key() is None:
-            ui.warn("você ainda não configurou a chave do OpenRouter.")
-            _menu_set_key()
+            ui.warn("você ainda não cadastrou nenhuma chave do OpenRouter.")
+            _key_add_flow()
             if config.load_api_key() is None:
                 return
         api_key = config.load_api_key()

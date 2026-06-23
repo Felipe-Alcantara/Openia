@@ -20,6 +20,7 @@ Responsabilidades separadas em camadas finas:
 - `orctl/runner.py` — instalar / detectar / executar (isola pip, npm e SO); aplica o modelo por flag/env quando a interface suporta.
 - `orctl/models.py` — catálogo de modelos do OpenRouter: busca `/api/v1/models`, agrupa por empresa, com cache local de 24h e fallback para cache em caso de falha de rede.
 - `orctl/ui.py` — apresentação do menu (molduras Unicode, cores, emojis, prompts). Isola a aparência da lógica do `cli.py`.
+- `orctl/usage.py` — consulta uso/saldo no OpenRouter (`/api/v1/credits`); usado no menu e na statusline.
 - `orctl/cli.py` — interface do usuário (Typer): `list`, `key`, `install`, `run` e menu.
 - `start_app.py` — ponto de entrada único (contrato GUIA-START-APP-SCRIPT): instala dependências e abre o menu. Adaptado para CLI (sem porta/restart/navegador, com justificativa no cabeçalho).
 
@@ -36,6 +37,9 @@ Responsabilidades separadas em camadas finas:
 - **base_url por interface + clear_env:** a base_url deixou de ser fixa. O Claude Code usa `ANTHROPIC_BASE_URL=https://openrouter.ai/api` (sem `/v1`), chave em `ANTHROPIC_AUTH_TOKEN` e `ANTHROPIC_API_KEY` esvaziada via `clear_env` (evita o conflito que causa "model not found").
 - **Interfaces atuais (7):** chat — orchat, aichat, llm; agentes de código — cline (npm), opencode (script), openclaw (npm + onboard), claudecode (npm, protocolo Anthropic).
 - **Claude Code com dois modos de autenticação:** `supports_subscription=True`. Modo provider injeta as vars do OpenRouter; modo assinatura roda `claude` removendo `env_keys`/`base_url_env`/`clear_env` do ambiente (`runner._env_without_provider`), para o login OAuth Pro/Max funcionar. Escolha por `--subscription`/`--provider` ou no menu.
+- **Múltiplas chaves nomeadas em `keys.json`** (não mais `.env`): cada chave tem nome, uma fica ativa; gerência completa pelo menu (adicionar/ativar/renomear/remover). Migra automaticamente um `.env` antigo de chave única para a chave 'padrão'. `load_api_key()` devolve a ativa (env var ainda tem prioridade). Arquivo com 0600 no Unix, gitignored.
+- **Uso/saldo e statusline:** opção no menu mostra uso real do OpenRouter (`/credits`). Comando oculto `orctl statusline` imprime a linha de uso; outra opção do menu instala isso no `~/.claude/settings.json` do Claude Code (porque o `/cost` nativo é impreciso via OpenRouter), sempre mostrando o que muda e pedindo confirmação, preservando o resto do arquivo.
+- **Nome do projeto:** `orctl` = "OpenRouter control" (`or` + `ctl`, convenção tipo kubectl/systemctl). Escolha do assistente; renomeável se o usuário preferir.
 - **Menu interativo é o caminho principal** (pedido do usuário: não querer usar flags). `python start_app.py` abre um menu em loop com banner, emojis e cores: escolher interface, configurar a chave, escolher modo (assinatura/OpenRouter) e modelo (empresa→modelo) — tudo pelo teclado. As flags do comando `run` continuam existindo para uso avançado, mas não são necessárias. Apresentação isolada em `ui.py`; emoji por interface no contrato (`emoji`).
 - **Multiplataforma (Linux/macOS/Windows):** `npm` → `npm.cmd` no Windows; instalador SCRIPT usa `curl | sh` no Unix e PowerShell `irm | iex` no Windows (`runner._script_install_cmd`); `save_api_key` aplica chmod 600 só no Unix e devolve aviso no Windows (POSIX não se aplica). `start_app.py` já era stdlib + `sys.executable`.
 

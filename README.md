@@ -113,15 +113,31 @@ python3 -m orctl run orchat     # instala (se preciso) e abre a interface
 Adicionar uma nova interface é só registrar uma `AIInterface` em
 [orctl/interfaces/registry.py](orctl/interfaces/registry.py) — o núcleo não muda.
 
+### Várias chaves nomeadas
+
+Você pode cadastrar quantas chaves quiser, cada uma com um nome (ex.: `pessoal`,
+`trabalho`), e escolher qual fica **ativa**. Tudo pelo menu (opção *Chaves do
+OpenRouter*): adicionar, trocar a ativa, renomear e remover. A opção *Ver meu
+uso/saldo* mostra quanto você já gastou e quanto resta na chave ativa.
+
 ### Segurança da chave
 
-- A chave **nunca** entra no código nem em arquivo versionado.
-- É gravada em `orctl/.env` e está no `.gitignore`.
+- As chaves **nunca** entram no código nem em arquivo versionado.
+- São gravadas em `orctl/keys.json` (no `.gitignore`). Um `.env` antigo de chave
+  única é migrado automaticamente.
 - No Linux/macOS o arquivo recebe permissão `600` (só o dono lê/escreve). No
-  Windows as permissões POSIX não se aplicam, então o orctl avisa que o arquivo
-  não fica protegido por permissão — mantenha a pasta privada.
-- Na execução, é repassada à CLI por variável de ambiente (não por argumento).
-- Uma variável `OPENROUTER_API_KEY` já exportada tem prioridade sobre o arquivo.
+  Windows as permissões POSIX não se aplicam, então o orctl avisa — mantenha a
+  pasta privada.
+- Na execução, a chave ativa é repassada à CLI por variável de ambiente (não por
+  argumento). Uma `OPENROUTER_API_KEY` já exportada tem prioridade.
+
+### Custo no Claude Code
+
+O `/cost` nativo do Claude Code é impreciso via OpenRouter (usa preços da
+Anthropic). Pelo menu, a opção *Statusline de custo no Claude Code* configura uma
+statusline que mostra uso/saldo reais do OpenRouter na barra de status. Ela mexe
+no `~/.claude/settings.json` (global), então o orctl mostra exatamente o que será
+gravado e pede confirmação antes.
 
 ### Multiplataforma
 

@@ -1,7 +1,8 @@
 
 /Padrão de qualidade - Felixo System Design
 
-# Segredos: a chave do OpenRouter nunca deve ser versionada.
+# Segredos: as chaves do OpenRouter nunca devem ser versionadas.
+orctl/keys.json
 orctl/.env
 .env
 
