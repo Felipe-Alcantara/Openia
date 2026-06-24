@@ -407,6 +407,8 @@ def _menu_keys() -> None:
             ui.info("nenhuma chave cadastrada ainda.", emoji="")
 
         opcoes = ["➕ Adicionar uma chave"]
+        if chaves:
+            opcoes.append("🌐 Testar uma chave")
         if len(chaves) > 1:
             opcoes.append("✅ Definir qual fica ativa")
         if chaves:
@@ -418,6 +420,9 @@ def _menu_keys() -> None:
 
         if acao.startswith("➕"):
             _key_add_flow()
+        elif acao.startswith("🌐"):
+            _key_pick_and(lambda nome: _testar_chave(
+                next(nk.key for nk in config.list_keys() if nk.name == nome)))
         elif acao.startswith("✅"):
             _key_pick_and(lambda nome: (config.set_active(nome),
                                         ui.success(f"'{nome}' agora é a chave ativa.")))
@@ -442,6 +447,23 @@ def _key_add_flow() -> None:
     ui.success(f"chave '{nome}' salva e ativada.")
     if warning:
         ui.warn(warning)
+    # Formato OK não garante que a chave autentica; testa de verdade na rede.
+    _testar_chave(chave)
+
+
+def _testar_chave(chave: str) -> None:
+    """Valida a chave contra o OpenRouter e relata o resultado.
+
+    Não bloqueia: se a chave não autenticar (ou houver problema de rede) apenas
+    avisa, para o usuário poder ajustar antes de tentar rodar uma interface e ver
+    a CLI falhar lá dentro com um erro críptico.
+    """
+    ui.info("testando a chave no OpenRouter…", emoji="🌐")
+    resultado = usage.check_api_key(chave)
+    if resultado.ok:
+        ui.success(resultado.reason)
+    else:
+        ui.warn(resultado.reason)
 
 
 def _key_rename_flow() -> None:
@@ -563,6 +585,14 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
             if config.load_api_key() is None:
                 raise _Cancelado
         api_key = config.load_api_key()
+        # Confere que a chave realmente autentica antes de entregar à CLI: uma
+        # chave "ativa" porém revogada/sem saldo só falharia lá dentro, com erro
+        # críptico. Em falha de rede deixamos seguir (pode ser falso-negativo).
+        check = usage.check_api_key(api_key)
+        if not check.ok:
+            ui.warn(f"a chave ativa não passou no teste: {check.reason}")
+            if not typer.confirm("  tentar mesmo assim?", default=False):
+                raise _Cancelado
         if typer.confirm("  escolher o modelo agora (empresa → modelo)?", default=True):
             model_id = _apply_or_explain_model(iface, _choose_model(iface))
     else:
