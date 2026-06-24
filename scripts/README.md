@@ -39,6 +39,26 @@ Não sabe qual é o seu? Se você abriu o "Prompt de Comando", é **CMD**. Se ab
 Qualquer argumento é repassado ao `start_app.py`, então tudo que funcionava com
 `python start_app.py ...` funciona com `openia ...`.
 
+## "openia não é reconhecido" depois de instalar
+
+O instalador grava o comando no PATH, mas **terminais já abertos não enxergam o
+PATH novo** — você precisa de um terminal que tenha iniciado *depois* da
+instalação.
+
+- **Abra um terminal totalmente novo** e tente de novo.
+- **Usa VS Code, Cursor ou um terminal integrado?** Abrir só uma aba nova **não
+  basta**: o terminal herda o ambiente do editor, que continua em segundo plano
+  com o PATH antigo. **Feche o editor por inteiro** e reabra — ou faça
+  **logoff/login** no Windows, que resolve em qualquer caso.
+- **Quero usar agora, sem fechar nada:** injete o PATH só nesta sessão e rode:
+
+  ```cmd
+  set "PATH=%LOCALAPPDATA%\openia;%PATH%"
+  openia
+  ```
+
+  (No PowerShell: `$env:Path = "$env:LOCALAPPDATA\openia;$env:Path"; openia`.)
+
 ## Desinstalar
 
 | Terminal | Comando |
