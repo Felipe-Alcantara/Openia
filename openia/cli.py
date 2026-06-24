@@ -577,8 +577,25 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
     ui.info("a sessão terminou — voltando ao menu.", emoji="↩️")
 
 
+def force_utf8_output() -> None:
+    """Garante saída UTF-8 no terminal (sobretudo no Windows).
+
+    Sem isto, o console do Windows usa cp1252 por padrão e quebra com
+    ``UnicodeEncodeError`` ao imprimir caracteres como ``✓``, emojis ou um
+    caminho de projeto com acentos. Idempotente e seguro em qualquer plataforma.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass  # stream não regravável (ex.: redirecionado); ignora
+
+
 def entrypoint() -> None:
     """Ponto de entrada para ``python -m openia`` e para o script de console."""
+    force_utf8_output()
     app()
 
 

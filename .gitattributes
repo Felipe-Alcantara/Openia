@@ -1,2 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Scripts de shell precisam de LF (CRLF quebra o bash/zsh).
+*.sh text eol=lf
+
+# Arquivos de lote do Windows precisam de CRLF (LF quebra o CMD).
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# PowerShell: CRLF por convenção no Windows.
+*.ps1 text eol=crlf

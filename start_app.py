@@ -79,11 +79,14 @@ def main() -> int:
     # Garante que o pacote local seja importavel mesmo fora da raiz.
     sys.path.insert(0, str(ROOT))
     try:
-        from openia.cli import app
+        from openia.cli import app, force_utf8_output
     except ImportError as exc:
         log(f"Nao consegui carregar o openia: {exc}")
         log("Confirme que voce esta rodando este script na raiz do projeto.")
         return 1
+
+    # Saida UTF-8 no terminal (Windows usa cp1252 e quebraria com '✓'/emojis).
+    force_utf8_output()
 
     # Sem argumentos: abre o menu interativo. Com argumentos: repassa ao openia
     # (ex.: 'key', 'list', 'run orchat'), mantendo um unico ponto de entrada.
