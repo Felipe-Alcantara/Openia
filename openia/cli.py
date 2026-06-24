@@ -405,6 +405,8 @@ def _menu_keys() -> None:
             ui.option(0, f"{marca}{nk.name}  ({_mask(nk.key)})  {tag}".rstrip(), emoji="🔑")
         if not chaves:
             ui.info("nenhuma chave cadastrada ainda.", emoji="")
+            ui.info("escolha '➕ Adicionar uma chave' — eu explico como criar uma.",
+                    emoji="👉")
 
         opcoes = ["➕ Adicionar uma chave"]
         if len(chaves) > 1:
@@ -428,8 +430,36 @@ def _menu_keys() -> None:
                                         ui.success(f"chave '{nome}' removida.")))
 
 
+def _explain_how_to_get_key() -> None:
+    """Mostra o passo a passo de como criar uma chave no OpenRouter.
+
+    Pensado para quem nunca usou o serviço: leva da criação da conta até copiar
+    a chave. Exibido antes de pedir a chave quando ainda não há nenhuma cadastrada.
+    """
+    ui.section("Como conseguir uma chave do OpenRouter")
+    passos = [
+        "Acesse https://openrouter.ai e crie uma conta (dá para entrar com Google/GitHub).",
+        "Adicione créditos em https://openrouter.ai/credits "
+        "(ou use modelos gratuitos, marcados com ':free').",
+        "Abra https://openrouter.ai/keys e clique em 'Create Key'.",
+        "Dê um nome à chave e clique em 'Create' — ela começa com 'sk-or-'.",
+        "Copie a chave AGORA (ela só aparece uma vez) e cole aqui no próximo passo.",
+    ]
+    for i, passo in enumerate(passos, start=1):
+        marca = typer.style(f"  {i}.", fg=typer.colors.GREEN, bold=True)
+        typer.echo(f"{marca} {passo}")
+    typer.secho(
+        "  Dica: a chave é secreta — o openia a guarda só na sua máquina, "
+        "fora do controle de versão.",
+        fg=typer.colors.BRIGHT_BLACK,
+    )
+    typer.echo()
+
+
 def _key_add_flow() -> None:
-    """Pede nome + chave e salva."""
+    """Pede nome + chave e salva. No primeiro cadastro, mostra como obter a chave."""
+    if not config.list_keys():
+        _explain_how_to_get_key()
     nome = typer.prompt(typer.style("✏️  Nome para esta chave (ex.: pessoal)",
                                      fg=typer.colors.CYAN))
     chave = typer.prompt(typer.style("🔑 Cole a chave do OpenRouter", fg=typer.colors.CYAN),
