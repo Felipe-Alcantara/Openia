@@ -100,6 +100,7 @@ def run(
     extra_args: list[str] | None = None,
     model_id: str | None = None,
     use_provider: bool = True,
+    cwd: str | None = None,
 ) -> int:
     """Executa a interface. Retorna o exit code.
 
@@ -114,6 +115,10 @@ def run(
 
     Se ``model_id`` for dado e a ferramenta aceitar modelo por flag/env, ele é
     aplicado no formato esperado por ela (ver ``AIInterface.model_ref``).
+
+    ``cwd`` define o diretório de trabalho do processo filho. Para agentes de
+    código é a raiz do projeto que eles editam — e, no Claude Code, o caminho que
+    indexa o histórico de sessões. Se ``None``, herda o cwd do openia.
     """
     # Resolve o caminho real do executável. No Windows a CLI costuma ser um
     # 'claude.cmd'/'.bat'; o CreateProcess (shell=False) não aplica PATHEXT nem
@@ -142,7 +147,8 @@ def run(
 
     cmd = [executable, *interface.run_args, *model_args, *(extra_args or [])]
     # Sem capturar saída: a CLI é interativa e assume o terminal do usuário.
-    completed = subprocess.run(cmd, env=env)
+    # cwd posiciona o agente na raiz do projeto certo (ver docstring).
+    completed = subprocess.run(cmd, env=env, cwd=cwd)
     return completed.returncode
 
 

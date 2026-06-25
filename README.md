@@ -125,6 +125,23 @@ volta ao menu. Para sair, escolha `0`.
 > Não é um servidor web: por ser uma CLI interativa, o `start_app.py` não tem
 > `restart`/porta/navegador; o equivalente a "abrir o app" é abrir o menu.
 
+#### 📁 Pasta do projeto (agentes de código)
+
+Ao iniciar um **agente de código** (Claude Code, opencode, cline, OpenClaw), o
+openia pergunta **em qual pasta** ele deve rodar — essa é a raiz do projeto que o
+agente lê e edita. Por padrão é o diretório atual (Enter aceita); você pode
+digitar outro caminho. Assim o agente já abre no repositório certo, **sem
+precisar indicar o caminho no prompt**.
+
+> **Claude Code — histórico:** o Claude Code indexa o histórico de sessões
+> **pela pasta do projeto** (`~/.claude/projects/<caminho>`). Para o `/resume`
+> mostrar o mesmo histórico que você vê na **extensão do VS Code**, rode o agente
+> no **mesmo caminho** do repositório aberto no editor — é exatamente o que o
+> openia pede e valida nesse passo.
+
+Pela linha de comando, a flag `--dir`/`-C` define a pasta sem perguntar:
+`openia run claudecode -C /caminho/do/projeto`.
+
 ### Opção 2: Para desenvolvedores
 
 Dá pra chamar o módulo direto (requer `pip install typer`):

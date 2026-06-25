@@ -69,8 +69,9 @@ def test_run_resolve_executavel_via_which(monkeypatch):
     )
     capturado = {}
 
-    def fake_run(cmd, env=None):
+    def fake_run(cmd, env=None, cwd=None):
         capturado["cmd"] = cmd
+        capturado["cwd"] = cwd
 
         class R:
             returncode = 0
@@ -81,6 +82,34 @@ def test_run_resolve_executavel_via_which(monkeypatch):
     rc = runner.run(iface, api_key="k")
     assert rc == 0
     assert capturado["cmd"][0] == r"C:\\Users\\b\\claude.cmd"
+    # Sem cwd explícito, herda o do openia (None repassado ao subprocess).
+    assert capturado["cwd"] is None
+
+
+def test_run_repassa_cwd_ao_subprocess(monkeypatch, tmp_path):
+    # Agentes de código precisam rodar na raiz do projeto: o cwd deve chegar
+    # ao subprocess, senão o agente abre na pasta errada e o histórico (Claude
+    # Code, indexado por caminho) não bate com o do editor.
+    iface = AIInterface(
+        key="agente", name="Agente", description="x",
+        ecosystem=Ecosystem.NODE, package="x", command="claude",
+        homepage="https://example.com", is_code_agent=True,
+    )
+    monkeypatch.setattr(runner.shutil, "which", lambda x: "/bin/claude")
+    capturado = {}
+
+    def fake_run(cmd, env=None, cwd=None):
+        capturado["cwd"] = cwd
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    rc = runner.run(iface, api_key="k", cwd=str(tmp_path))
+    assert rc == 0
+    assert capturado["cwd"] == str(tmp_path)
 
 
 def test_run_sem_executavel_no_path_falha(monkeypatch):

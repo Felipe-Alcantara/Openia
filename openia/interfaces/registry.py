@@ -71,6 +71,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
         env_keys=("OPENROUTER_API_KEY",),
         # cline -m aceita o id do OpenRouter direto.
         model_arg="-m",
+        is_code_agent=True,
     ),
     AIInterface(
         key="opencode",
@@ -86,6 +87,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
         base_url_env="OPENAI_API_BASE",
         # opencode --model usa exatamente o id provider/model do OpenRouter.
         model_arg="--model",
+        is_code_agent=True,
     ),
     AIInterface(
         key="openclaw",
@@ -106,6 +108,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
         # no onboard/UI; openia mostra o ref pronto.
         model_prefix="openrouter/",
         model_select_in_app=True,
+        is_code_agent=True,
     ),
     AIInterface(
         key="claudecode",
@@ -133,6 +136,7 @@ _INTERFACES: tuple[AIInterface, ...] = (
         ),
         # Também pode rodar na assinatura Anthropic (login OAuth), sem OpenRouter.
         supports_subscription=True,
+        is_code_agent=True,
     ),
 )
 

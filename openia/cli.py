@@ -278,6 +278,11 @@ def run(
     provider: bool = typer.Option(
         False, "--provider", help="Rodar via OpenRouter (padrão para a maioria)."
     ),
+    directory: str = typer.Option(
+        None, "--dir", "-C",
+        help="Pasta onde rodar (raiz do projeto). Para agentes de código; "
+             "se omitido, o openia pergunta.",
+    ),
 ) -> None:
     """Roda a interface (instala antes, se necessário). Args extras vão para a CLI."""
     iface = _resolve(interface)
@@ -291,15 +296,34 @@ def run(
 
     api_key = _ensure_key() if use_provider else None
     model_id = _decide_model(iface, model=model, no_model=no_model) if use_provider else None
+    cwd = _resolve_workdir(iface, directory)
 
     try:
         code = runner.run(
             iface, api_key, extra_args=list(ctx.args),
-            model_id=model_id, use_provider=use_provider,
+            model_id=model_id, use_provider=use_provider, cwd=cwd,
         )
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
     raise typer.Exit(code=code)
+
+
+def _resolve_workdir(iface: AIInterface, directory: str | None) -> str | None:
+    """Resolve o cwd do comando ``run``: flag --dir, ou pergunta se for agente.
+
+    Chats puros não usam cwd (None). Para agentes de código: respeita ``--dir``
+    quando dado (validando), senão cai no fluxo interativo de ``_choose_workdir``.
+    """
+    if not iface.is_code_agent:
+        return None
+    if directory:
+        from pathlib import Path
+
+        alvo = Path(directory).expanduser()
+        if not alvo.is_dir():
+            raise _err(f"--dir não é uma pasta válida: {alvo}")
+        return str(alvo.resolve())
+    return _choose_workdir(iface)
 
 
 def _decide_mode(iface: AIInterface, subscription: bool, provider: bool) -> bool:
@@ -334,6 +358,49 @@ def _decide_model(iface: AIInterface, model: str | None, no_model: bool) -> str 
         return None
     chosen = model if model else _choose_model(iface)
     return _apply_or_explain_model(iface, chosen)
+
+
+def _choose_workdir(iface: AIInterface) -> str:
+    """Pergunta em qual pasta o agente de código deve rodar (seu cwd).
+
+    Agentes de código (Claude Code, opencode, cline…) usam o diretório de
+    trabalho como raiz do projeto: é onde eles leem/editam arquivos. No Claude
+    Code, esse caminho também indexa o histórico de sessões em
+    ``~/.claude/projects/<caminho>`` — por isso, para o histórico da extensão do
+    VS Code aparecer, o agente precisa rodar no MESMO caminho do repositório
+    aberto no editor.
+
+    Mostra o diretório atual como padrão (Enter aceita) e valida a pasta digitada.
+    """
+    from pathlib import Path
+
+    atual = Path.cwd()
+    ui.section("Em qual pasta o agente vai trabalhar?")
+    ui.info(f"raiz do projeto = onde {iface.name} vai ler e editar arquivos.", emoji="📁")
+    if iface.key == "claudecode":
+        ui.warn(
+            "o histórico do Claude Code é ligado à pasta do projeto. Para ver no "
+            "menu /resume o mesmo histórico da extensão do VS Code, use aqui o "
+            "MESMO caminho do repositório que você abre no editor."
+        )
+    typer.secho(f"  atual: {atual}", fg=typer.colors.BRIGHT_BLACK)
+
+    while True:
+        resposta = typer.prompt(
+            typer.style("📁 Caminho do projeto (Enter = atual)", fg=typer.colors.CYAN),
+            default=str(atual),
+            show_default=False,
+        ).strip()
+        alvo = Path(resposta).expanduser()
+        if not alvo.exists():
+            ui.error(f"a pasta não existe: {alvo}")
+            continue
+        if not alvo.is_dir():
+            ui.error(f"isso não é uma pasta: {alvo}")
+            continue
+        resolved = str(alvo.resolve())
+        ui.success(f"o agente vai rodar em: {resolved}")
+        return resolved
 
 
 @app.callback(invoke_without_command=True)
@@ -703,9 +770,12 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
     else:
         ui.success(f"usando a autenticação própria do {iface.name} (sem OpenRouter).")
 
+    # Agentes de código precisam rodar na raiz do projeto certo (ver _choose_workdir).
+    cwd = _choose_workdir(iface) if iface.is_code_agent else None
+
     ui.banner(f"{iface.emoji}  iniciando {iface.name}")
     try:
-        runner.run(iface, api_key, model_id=model_id, use_provider=use_provider)
+        runner.run(iface, api_key, model_id=model_id, use_provider=use_provider, cwd=cwd)
     except runner.ToolingError as exc:
         ui.error(str(exc))
         return

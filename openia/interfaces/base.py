@@ -69,6 +69,12 @@ class AIInterface:
         supports_subscription: Quando ``True``, a ferramenta também pode rodar
             com a autenticação própria dela (ex.: login de assinatura do Claude
             Code), sem usar o OpenRouter. O openia então oferece os dois modos.
+        is_code_agent: Quando ``True``, a ferramenta lê/edita arquivos do projeto
+            e usa o diretório de trabalho como raiz (ex.: Claude Code, opencode,
+            cline). O openia pergunta em qual pasta rodar e a passa como ``cwd``,
+            para o agente já abrir no repositório certo — e, no caso do Claude
+            Code, para o histórico de sessões (indexado pelo caminho do projeto)
+            bater com o que a extensão do VS Code usa. Chats puros ficam ``False``.
         emoji: Ícone exibido ao lado do nome no menu (apresentação).
     """
 
@@ -91,6 +97,7 @@ class AIInterface:
     model_select_in_app: bool = False
     clear_env: tuple[str, ...] = field(default_factory=tuple)
     supports_subscription: bool = False
+    is_code_agent: bool = False
     emoji: str = "🤖"
 
     def model_ref(self, model_id: str) -> str:
