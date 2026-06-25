@@ -31,8 +31,23 @@ class Usage:
         return self.total_credits - self.total_usage
 
 
-def fetch_usage(api_key: str, timeout: float = 10.0) -> Usage:
-    """Busca uso/saldo no OpenRouter. Levanta ``UsageError`` em falha."""
+class KeyCheck:
+    """Resultado de validar uma chave contra o OpenRouter."""
+
+    def __init__(self, ok: bool, reason: str) -> None:
+        self.ok = ok
+        self.reason = reason
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+
+def _credits_request(api_key: str, timeout: float) -> dict:
+    """Faz a chamada a ``/credits`` e devolve o JSON; levanta ``UsageError``.
+
+    Distingue a falha de autenticação (401/403) das demais para que o chamador
+    saiba se o problema é a chave em si ou a rede.
+    """
     if not api_key:
         raise UsageError("chave do OpenRouter ausente.")
     req = urllib.request.Request(
@@ -41,9 +56,36 @@ def fetch_usage(api_key: str, timeout: float = 10.0) -> Usage:
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 (URL fixa, https)
-            payload = json.loads(resp.read().decode("utf-8"))
+            return json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            raise UsageError(
+                "a chave foi rejeitada pelo OpenRouter (inválida, revogada "
+                "ou sem permissão)."
+            ) from exc
+        raise UsageError(f"o OpenRouter respondeu com erro HTTP {exc.code}.") from exc
     except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise UsageError(f"não foi possível consultar o uso: {exc}") from exc
+        raise UsageError(f"não foi possível consultar o OpenRouter: {exc}") from exc
+
+
+def check_api_key(api_key: str, timeout: float = 10.0) -> KeyCheck:
+    """Valida a chave *de verdade*, autenticando contra o OpenRouter.
+
+    Diferente de ``config.validate_api_key`` (que só confere o formato), esta
+    chama a rede: uma chave bem-formada mas revogada/sem saldo aqui aparece como
+    inválida. Não levanta exceção — devolve um ``KeyCheck`` com motivo, para o
+    menu mostrar algo acionável sem precisar de try/except no chamador.
+    """
+    try:
+        _credits_request(api_key, timeout)
+    except UsageError as exc:
+        return KeyCheck(ok=False, reason=str(exc))
+    return KeyCheck(ok=True, reason="chave válida e autenticada no OpenRouter.")
+
+
+def fetch_usage(api_key: str, timeout: float = 10.0) -> Usage:
+    """Busca uso/saldo no OpenRouter. Levanta ``UsageError`` em falha."""
+    payload = _credits_request(api_key, timeout)
 
     data = payload.get("data") or {}
     try:

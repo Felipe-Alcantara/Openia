@@ -55,6 +55,46 @@ def test_script_install_windows_sem_powershell_falha(monkeypatch):
         runner._script_install_cmd(SCRIPT_IFACE)
 
 
+def test_run_resolve_executavel_via_which(monkeypatch):
+    # No Windows a CLI é 'claude.cmd'; run() deve invocar o caminho resolvido
+    # pelo which, não o nome cru (que falharia em CreateProcess com WinError 2).
+    iface = AIInterface(
+        key="claude_like", name="ClaudeLike", description="x",
+        ecosystem=Ecosystem.NODE, package="x", command="claude",
+        homepage="https://example.com",
+    )
+    monkeypatch.setattr(
+        runner.shutil, "which",
+        lambda x: r"C:\\Users\\b\\claude.cmd" if x == "claude" else None,
+    )
+    capturado = {}
+
+    def fake_run(cmd, env=None):
+        capturado["cmd"] = cmd
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+    rc = runner.run(iface, api_key="k")
+    assert rc == 0
+    assert capturado["cmd"][0] == r"C:\\Users\\b\\claude.cmd"
+
+
+def test_run_sem_executavel_no_path_falha(monkeypatch):
+    iface = AIInterface(
+        key="claude_like", name="ClaudeLike", description="x",
+        ecosystem=Ecosystem.NODE, package="x", command="claude",
+        homepage="https://example.com",
+    )
+    monkeypatch.setattr(runner.shutil, "which", lambda x: None)
+    with pytest.raises(runner.ToolingError) as exc:
+        runner.run(iface, api_key="k")
+    assert "não está instalada" in str(exc.value)
+
+
 def test_env_sem_provider_remove_variaveis(monkeypatch):
     # Simula variáveis do OpenRouter já no ambiente, que o modo assinatura limpa.
     monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "tok")

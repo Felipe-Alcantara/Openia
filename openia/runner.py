@@ -115,7 +115,12 @@ def run(
     Se ``model_id`` for dado e a ferramenta aceitar modelo por flag/env, ele é
     aplicado no formato esperado por ela (ver ``AIInterface.model_ref``).
     """
-    if not is_installed(interface):
+    # Resolve o caminho real do executável. No Windows a CLI costuma ser um
+    # 'claude.cmd'/'.bat'; o CreateProcess (shell=False) não aplica PATHEXT nem
+    # procura no PATH, então passar só 'claude' falha com WinError 2. O which()
+    # resolve a extensão correta em qualquer SO e ainda confirma a instalação.
+    executable = shutil.which(interface.command)
+    if not executable:
         raise ToolingError(
             f"{interface.name} não está instalada. Rode a instalação primeiro."
         )
@@ -135,7 +140,7 @@ def run(
         if interface.model_arg:
             model_args = [interface.model_arg, ref]
 
-    cmd = [interface.command, *interface.run_args, *model_args, *(extra_args or [])]
+    cmd = [executable, *interface.run_args, *model_args, *(extra_args or [])]
     # Sem capturar saída: a CLI é interativa e assume o terminal do usuário.
     completed = subprocess.run(cmd, env=env)
     return completed.returncode
