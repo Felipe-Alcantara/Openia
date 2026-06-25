@@ -2,24 +2,27 @@
 """
 start_app.py — Script padrao de inicializacao (Felixo System Design).
 
-Ponto de entrada unico do openia: instala dependencias e abre o menu para
-escolher e iniciar uma interface de IA com OpenRouter. Pensado para quem nao
-tem familiaridade com terminal — basta:
+Ponto de entrada unico do openia: instala dependencias e abre o menu interativo
+para escolher e iniciar uma interface de IA com OpenRouter. Pensado para quem
+nao tem familiaridade com terminal — basta um comando:
 
     python start_app.py
 
-Uso:
-    python start_app.py                # instala (se preciso) + abre o menu
-    python start_app.py --no-install   # pula a instalacao de dependencias
-    python start_app.py key            # configura a chave do OpenRouter
-    python start_app.py list           # lista as interfaces suportadas
+A interface e sempre o menu interativo: instalar/configurar/iniciar/ver status
+acontecem todos por ele, sem decorar argumento. As flags abaixo existem so como
+atalho avancado e nao sao necessarias para uso normal:
+
+    python start_app.py --no-install   # pula a checagem/instalacao de deps
+    python start_app.py key set        # repassado ao openia (atalho)
+    python start_app.py list           # repassado ao openia (atalho)
 
 Adaptacao do contrato GUIA-START-APP-SCRIPT.md: este projeto e uma CLI
 interativa, nao um servidor web. Por isso nao ha porta, "restart" nem abertura
 de navegador — o equivalente a "iniciar o app e abrir" e abrir o menu do openia.
-O que se aplica do contrato esta mantido: instalar dependencias, ponto de
-entrada unico, cross-platform, falhar com mensagem clara e nao guardar segredo
-(a chave fica em openia/.env, nunca neste script).
+O que se aplica do contrato esta mantido: menu interativo como porta de entrada,
+instalar dependencias, ponto de entrada unico, cross-platform, falhar com
+mensagem clara e nao guardar segredo (a chave fica em openia/keys.json,
+gitignored, nunca neste script).
 """
 
 import subprocess
