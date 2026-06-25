@@ -361,15 +361,22 @@ def _interactive_menu() -> None:
             ui.option(idx, f"{iface.name} · {status}", emoji=iface.emoji,
                       dim=iface.description)
 
-        ui.section("Configurações")
+        ui.section("Instalar e configurar")
         estado_chave = (
             typer.style(f"ativa: {ativa}", fg=typer.colors.GREEN)
             if ativa else typer.style("nenhuma chave", fg=typer.colors.YELLOW)
         )
         n = len(interfaces)
-        ui.option(n + 1, f"Chaves do OpenRouter · {estado_chave}", emoji="🔑")
-        ui.option(n + 2, "Ver meu uso/saldo no OpenRouter", emoji="📊")
-        ui.option(n + 3, "Statusline de custo no Claude Code", emoji="🧾")
+        ui.option(n + 1, "Instalar / Setup de uma interface", emoji="📦",
+                  dim="instala uma CLI sem já iniciá-la")
+        ui.option(n + 2, f"Chaves do OpenRouter · {estado_chave}", emoji="🔑",
+                  dim="adicionar, ativar, renomear ou remover")
+
+        ui.section("Status e uso")
+        ui.option(n + 3, "Status do openia", emoji="🩺",
+                  dim="o que está instalado, chave e dependências")
+        ui.option(n + 4, "Ver meu uso/saldo no OpenRouter", emoji="📊")
+        ui.option(n + 5, "Statusline de custo no Claude Code", emoji="🧾")
         ui.back_option(0, "sair")
 
         escolha = ui.ask_number()
@@ -377,12 +384,18 @@ def _interactive_menu() -> None:
             ui.info("até a próxima! 👋", emoji="")
             return
         if escolha == n + 1:
-            _menu_keys()
+            _menu_install()
             continue
         if escolha == n + 2:
-            _menu_show_usage()
+            _menu_keys()
             continue
         if escolha == n + 3:
+            _menu_status()
+            continue
+        if escolha == n + 4:
+            _menu_show_usage()
+            continue
+        if escolha == n + 5:
             _menu_statusline()
             continue
         if not 1 <= escolha <= n:
@@ -390,6 +403,68 @@ def _interactive_menu() -> None:
             continue
 
         _run_interface_flow(interfaces[escolha - 1])
+
+
+def _menu_install() -> None:
+    """Instala/Setup uma interface sem já iniciá-la (ação Instalar/Setup do menu).
+
+    Cumpre o passo "Instalar/Setup" do contrato GUIA-START-APP-SCRIPT: deixar a
+    pessoa preparar uma ferramenta na frente, separado de rodá-la. Reaproveita o
+    mesmo fluxo de consentimento do `run` (script remoto pede confirmação).
+    """
+    interfaces = registry.all_interfaces()
+    rotulos = [
+        f"{iface.name} · {'instalada' if runner.is_installed(iface) else 'não instalada'}"
+        for iface in interfaces
+    ]
+    idx = _pick_from("Qual interface instalar?", rotulos)
+    if idx is None:
+        return
+    iface = interfaces[idx]
+    if runner.is_installed(iface):
+        ui.info(f"{iface.name} já está instalada.", emoji="✅")
+        return
+    ui.banner(f"{iface.emoji}  instalando {iface.name}")
+    try:
+        _install_with_consent(iface)
+    except typer.Exit:
+        ui.info("instalação cancelada.", emoji="↩️")
+        return
+    ui.success(f"{iface.name} instalada.")
+    _show_setup_hint(iface)
+
+
+def _menu_status() -> None:
+    """Mostra o estado real do openia (ação Status do contrato do start_app).
+
+    Checa de verdade — dependência do menu, chave ativa e quais interfaces estão
+    instaladas — em vez de chutar. É o "Status" exigido pelo menu mínimo.
+    """
+    from importlib.util import find_spec
+
+    ui.section("Status do openia")
+
+    typer_ok = find_spec("typer") is not None
+    (ui.success if typer_ok else ui.warn)(
+        f"dependência do menu (typer): {'disponível' if typer_ok else 'ausente'}"
+    )
+
+    ativa = config.active_key_name()
+    total_chaves = len(config.list_keys())
+    if ativa:
+        ui.success(f"chave do OpenRouter: ativa '{ativa}' ({total_chaves} cadastrada(s))")
+    else:
+        ui.warn("chave do OpenRouter: nenhuma cadastrada")
+
+    typer.echo()
+    typer.secho("  Interfaces:", bold=True)
+    for iface in registry.all_interfaces():
+        instalada = runner.is_installed(iface)
+        marca = (
+            typer.style("✓ instalada", fg=typer.colors.GREEN)
+            if instalada else typer.style("· não instalada", fg=typer.colors.BRIGHT_BLACK)
+        )
+        typer.echo(f"    {iface.emoji}  {iface.name}: {marca}")
 
 
 def _menu_keys() -> None:
