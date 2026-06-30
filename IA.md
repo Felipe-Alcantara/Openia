@@ -44,11 +44,31 @@ Responsabilidades separadas em camadas finas:
 - **Multiplataforma (Linux/macOS/Windows):** `npm` → `npm.cmd` no Windows; instalador SCRIPT usa `curl | sh` no Unix e PowerShell `irm | iex` no Windows (`runner._script_install_cmd`); `save_api_key` aplica chmod 600 só no Unix e devolve aviso no Windows (POSIX não se aplica). `start_app.py` já era stdlib + `sys.executable`.
 - **[2026-06-24] Agentes de código rodam na raiz do projeto (cwd):** dois problemas tinham a mesma causa — `runner.run` lançava a ferramenta sem definir `cwd`, então ela herdava o diretório de onde o openia foi chamado. (1) o agente não abria já no repositório (era preciso indicar o caminho no prompt); (2) o Claude Code não puxava o histórico da extensão do VS Code, porque ele indexa sessões por caminho do projeto (`~/.claude/projects/<path>`), e rodar de outro cwd aponta para outra pasta de sessões. Correção: novo campo `is_code_agent` no contrato (marca cline/opencode/openclaw/claudecode); `runner.run` aceita `cwd` e o repassa ao `subprocess.run`; `cli.py._choose_workdir` pergunta/valida a pasta (default = cwd atual) antes de iniciar um agente, com aviso específico do histórico para o Claude Code; comando `run` ganhou `--dir/-C` para passar o caminho não-interativamente (`_resolve_workdir`). Chats puros (orchat/aichat/llm) não pedem pasta. Testes: `test_run_repassa_cwd_ao_subprocess` + `fake_run` agora aceita `cwd`; 47 passando.
 - **[2026-06-24] Menu cobre as 4 ações obrigatórias do GUIA-START-APP-SCRIPT:** o `start_app.py` é um bootstrapper fino que abre o menu do `openia` (cli.py). O menu já tinha Iniciar/Rodar, Configurar (chaves) e Sair, mas faltavam **Instalar/Setup** e **Status** como ações de primeira classe (o contrato exige as quatro). Adicionados `_menu_install` (instala uma interface sem iniciá-la, reusando o gate de consentimento de script) e `_menu_status` (checa de verdade: dep do menu via `find_spec`, chave ativa, e cada interface instalada/não). Menu reorganizado em seções "Instalar e configurar" e "Status e uso"; numeração agora n+1..n+5. Sem teste novo (são camadas de apresentação que reusam funções já testadas); 46 testes seguem passando e o menu foi validado à mão renderizando as 12 opções.
+- **[2026-06-30] Claude Code abre sempre em YOLO MODE (acesso total):** o campo
+  `run_args` do `claudecode` agora inclui `--dangerously-skip-permissions`. O
+  openia já é o gate de consentimento — a pessoa escolheu abrir o agente de código
+  no projeto certo pelo menu interativo, então não faz sentido o Claude Code pedir
+  permissão de novo para cada ação. Isso elimina atrito: o agente já abre
+  trabalhando, sem barreira extra. O núcleo (`runner.py`) não mudou — `run_args`
+  faz parte do contrato `AIInterface` e é aplicado a qualquer interface
+  (Open/Closed). Aplica-se tanto ao modo OpenRouter quanto ao modo assinatura (a
+  flag é do Claude Code, não do provider). A flag dá acesso total a todas as
+  ferramentas do Claude Code (Bash, Write, Edit, etc.) sem confirmação — é o
+  nível máximo de permissão do agente.
+- **[2026-06-30] CLAUDE.md na raiz do projeto:** criado o arquivo de instruções
+  permanentes do Claude Code. Ele carrega automaticamente em toda sessão aberta
+  neste repositório e injeta: o contrato de qualidade Felixo (11 princípios do
+  guia mínimo), a memória operacional (`IA.md`), a stack e convenções do projeto,
+  a estrutura de camadas e o checklist de pronto. Com isso, qualquer sessão do
+  Claude Code neste repositório segue o padrão de qualidade **por padrão**, sem
+  que o usuário precise pedir. O arquivo também instrui o agente a usar acesso
+  total às ferramentas (YOLO MODE) e a nunca pedir permissão — o menu do openia
+  já fez esse gate.
 - **[2026-06-24] Passada de aderência ao padrão (Felixo System Design):** README reescrito no DESIGN_SYSTEM_README (header com badges centralizados, índice, estrutura, seções obrigatórias, autor/licença/CTA), com foco no programa `openia` e a lista de CLIs de IA mantida como seção de referência. Corrigido drift doc↔código: `.gitignore` tinha uma linha mojibake duplicada (`Padr├úo …`) que não casava com nada — a linha 2 acentuada é a que realmente ignora a pasta; `start_app.py` mencionava `openia/.env` (storage migrou para `keys.json`) e tinha docstring centrada em flags (padrão é menu-first); contagem de testes no IA.md estava em 37 (agora 46). Sem mudança de comportamento; 46 testes seguem passando.
 
 ## Testes
 
-`python3 -m pytest -q` → 46 testes passando (gravação/validação de chave e
+`python3 -m pytest -q` → 47 testes passando (gravação/validação de chave e
 permissão por SO, prioridade de env var, montagem de ambiente provider/assinatura,
 catálogo de modelos e ordenação por preço, registro de interfaces, comandos de
 instalação por SO, gate de consentimento de script).

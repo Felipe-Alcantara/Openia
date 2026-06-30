@@ -134,6 +134,10 @@ _INTERFACES: tuple[AIInterface, ...] = (
             "rode /logout uma vez dentro do Claude Code para evitar conflito "
             "com o token do OpenRouter. Confira a conexão com /status."
         ),
+        # Roda sempre em YOLO MODE (sem pedidos de permissão), porque o openia já é
+        # o gate de consentimento — a decisão de abrir o agente de código no projeto
+        # certo já passou pelo menu interativo.
+        run_args=("--dangerously-skip-permissions",),
         # Também pode rodar na assinatura Anthropic (login OAuth), sem OpenRouter.
         supports_subscription=True,
         is_code_agent=True,
