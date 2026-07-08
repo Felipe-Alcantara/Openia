@@ -32,6 +32,7 @@ com a lista vinda da API do OpenRouter ao vivo.
 - [🔑 Várias Chaves Nomeadas](#-várias-chaves-nomeadas)
 - [🔐 Segurança da Chave](#-segurança-da-chave)
 - [🧾 Custo no Claude Code](#-custo-no-claude-code)
+- [🧠 Effort no Claude Code com modelos do OpenRouter](#-effort-no-claude-code-com-modelos-do-openrouter)
 - [💻 Multiplataforma](#-multiplataforma)
 - [🧪 Testes](#-testes)
 - [📚 Referência: Melhores CLIs de IA para o Terminal](#-referência-melhores-clis-de-ia-para-o-terminal)
@@ -245,6 +246,32 @@ Anthropic). Pelo menu, a opção *Statusline de custo no Claude Code* configura 
 statusline que mostra uso/saldo reais do OpenRouter na barra de status. Ela mexe
 no `~/.claude/settings.json` (global), então o openia mostra exatamente o que será
 gravado e pede confirmação antes, preservando o resto do arquivo.
+
+---
+
+## 🧠 Effort no Claude Code com modelos do OpenRouter
+
+O Claude Code oferece a opção de mudar o *effort* (low/medium/high/max), que
+controla o orçamento de raciocínio (thinking) do modelo. Usando o openia com
+modelos customizados do OpenRouter, o efeito **depende do modelo**:
+
+- **Modelos com raciocínio (reasoning)** — o effort **funciona**. O Claude Code
+  envia o pedido no formato Anthropic (thinking/effort) e o OpenRouter traduz
+  para o formato de cada provedor:
+  - OpenAI (o-series, GPT-5) e DeepSeek: effort direto
+    (max≈95%, high≈80%, medium≈50%, low≈20% do orçamento de raciocínio);
+  - Gemini: vira o `thinkingLevel` do Google;
+  - se o modelo só suporta alguns níveis, o OpenRouter mapeia para o mais próximo.
+- **Modelos sem raciocínio** (a maioria dos modelos baratos) — o parâmetro é
+  **ignorado silenciosamente**: mudar o effort não altera qualidade nem custo.
+
+Para saber se um modelo aceita effort, veja se a página dele no OpenRouter lista
+o parâmetro `reasoning`. Ressalva da própria doc do OpenRouter: o Claude Code é
+otimizado para modelos Anthropic e pode não funcionar corretamente com outros
+provedores — tool use e thinking blocks funcionam melhor em modelos Anthropic.
+
+Fontes: [Reasoning Tokens (OpenRouter)](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens) ·
+[Claude Code Integration (OpenRouter)](https://openrouter.ai/docs/cookbook/coding-agents/claude-code-integration)
 
 ---
 

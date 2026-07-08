@@ -66,6 +66,8 @@ Responsabilidades separadas em camadas finas:
   já fez esse gate.
 - **[2026-06-24] Passada de aderência ao padrão (Felixo System Design):** README reescrito no DESIGN_SYSTEM_README (header com badges centralizados, índice, estrutura, seções obrigatórias, autor/licença/CTA), com foco no programa `openia` e a lista de CLIs de IA mantida como seção de referência. Corrigido drift doc↔código: `.gitignore` tinha uma linha mojibake duplicada (`Padr├úo …`) que não casava com nada — a linha 2 acentuada é a que realmente ignora a pasta; `start_app.py` mencionava `openia/.env` (storage migrou para `keys.json`) e tinha docstring centrada em flags (padrão é menu-first); contagem de testes no IA.md estava em 37 (agora 46). Sem mudança de comportamento; 46 testes seguem passando.
 
+- **(2026-07-08) Effort do Claude Code com modelos do OpenRouter — verificado e documentado:** o *effort* (low/medium/high/max) viaja no formato Anthropic (thinking) e o OpenRouter traduz para o parâmetro `reasoning` de cada provedor (OpenAI/DeepSeek: effort direto; Gemini: `thinkingLevel`; níveis não suportados mapeiam para o mais próximo). Em modelos **sem** reasoning o parâmetro é ignorado silenciosamente — não muda qualidade nem custo. Validado contra a doc oficial do OpenRouter (Reasoning Tokens e Claude Code Integration); seção nova no README ("Effort no Claude Code com modelos do OpenRouter"). Nenhum código alterado.
+
 ## Testes
 
 `python3 -m pytest -q` → 47 testes passando (gravação/validação de chave e
