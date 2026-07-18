@@ -2,8 +2,9 @@
 
 Comandos:
     openia list                  lista as interfaces suportadas
-    openia key set [CHAVE]       grava sua chave do OpenRouter (com segurança)
-    openia key show              mostra se há chave configurada (mascarada)
+    openia key add [NOME]        adiciona uma chave nomeada do OpenRouter e a ativa
+    openia key use <NOME>        define qual chave fica ativa
+    openia key list              lista as chaves cadastradas (mascaradas)
     openia install <interface>   instala a interface escolhida
     openia run <interface> ...   roda a interface (instala antes se faltar)
     openia                       menu interativo para escolher e iniciar
@@ -16,6 +17,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 
 import typer
 
@@ -105,17 +107,17 @@ def _show_setup_hint(iface: AIInterface) -> None:
 
 def _pick_from(titulo: str, itens: list[str]) -> int | None:
     """Mostra uma lista numerada estilizada; devolve o índice (ou None p/ voltar)."""
-    ui.section(titulo)
-    for idx, item in enumerate(itens, start=1):
-        ui.option(idx, item)
-    ui.back_option(0, "voltar / pular")
-    escolha = ui.ask_number()
-    if escolha == 0:
-        return None
-    if not 1 <= escolha <= len(itens):
+    while True:
+        ui.section(titulo)
+        for idx, item in enumerate(itens, start=1):
+            ui.option(idx, item)
+        ui.back_option(0, "voltar / pular")
+        escolha = ui.ask_number()
+        if escolha == 0:
+            return None
+        if 1 <= escolha <= len(itens):
+            return escolha - 1
         ui.error(f"opção inválida: {escolha}")
-        return _pick_from(titulo, itens)
-    return escolha - 1
 
 
 def _choose_model(iface: AIInterface) -> str | None:
@@ -654,7 +656,7 @@ def _key_rename_flow() -> None:
     ui.success(f"'{antigo}' renomeada para '{novo}'.")
 
 
-def _key_pick_and(acao) -> None:
+def _key_pick_and(acao: Callable[[str], None]) -> None:
     """Escolhe uma chave por nome e executa ``acao(nome)``, tratando erro."""
     chaves = config.list_keys()
     idx = _pick_from("Escolha a chave:", [nk.name for nk in chaves])

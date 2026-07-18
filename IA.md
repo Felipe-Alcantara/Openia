@@ -66,14 +66,42 @@ Responsabilidades separadas em camadas finas:
   já fez esse gate.
 - **[2026-06-24] Passada de aderência ao padrão (Felixo System Design):** README reescrito no DESIGN_SYSTEM_README (header com badges centralizados, índice, estrutura, seções obrigatórias, autor/licença/CTA), com foco no programa `openia` e a lista de CLIs de IA mantida como seção de referência. Corrigido drift doc↔código: `.gitignore` tinha uma linha mojibake duplicada (`Padr├úo …`) que não casava com nada — a linha 2 acentuada é a que realmente ignora a pasta; `start_app.py` mencionava `openia/.env` (storage migrou para `keys.json`) e tinha docstring centrada em flags (padrão é menu-first); contagem de testes no IA.md estava em 37 (agora 46). Sem mudança de comportamento; 46 testes seguem passando.
 
+- **[2026-07-18] Passada completa de aderência ao padrão de qualidade:** auditoria
+  do repositório inteiro contra o GUIA_MINIMO_QUALIDADE (código, scripts, testes e
+  docs), com cada achado verificado no código real antes de corrigir (anti-alucinação).
+  Correções aplicadas: (1) `.gitignore` — removida a linha mojibake
+  (`/Padr├úo …`, registrada como drift em 2026-06-24 mas nunca removida) e uma
+  duplicata sem barra inicial; ficou uma única linha correta, validada com
+  `git check-ignore` (pasta do padrão, `keys.json`, `.env` e cache seguem
+  ignorados). (2) Drift doc↔código — a docstring do `cli.py` e o cabeçalho do
+  `start_app.py` prometiam `key set`/`key show`, comandos que não existem; a API
+  real é `key add`/`key use`/`key list` (a migração para chaves nomeadas não
+  atualizou a doc). (3) `AGENTS.md` dizia que o openia lança "o Codex com
+  `--dangerously-skip-permissions`" — artefato de copy/replace do CLAUDE.md; a
+  flag é do Claude Code. (4) `_pick_from` usava recursão para repetir o menu em
+  opção inválida — trocada por loop `while` (mesmo comportamento, sem crescer a
+  pilha), com 2 testes novos travando o contrato (0 → `None`; inválida repete até
+  escolha válida). (5) Type hint `Callable[[str], None]` em `_key_pick_and`.
+  (6) Contagem de testes sincronizada em README/CLAUDE.md/AGENTS.md (estava 46/47;
+  agora 49). Falsos positivos da auditoria descartados após verificação:
+  `start_app.py` já valida `returncode` do pip e reconfere deps; `typer.prompt(type=int)`
+  já repete entrada não-numérica; o `awk` do instalador bash compara constantes
+  fixas com `==` (não regex de entrada externa). Não mudado por decisão: nomes de
+  função em inglês com docs em português (padrão estabelecido do repo; renomear
+  seria churn sem ganho) e cálculo heurístico de largura de emoji no `ui.py`
+  (dependência nova como `wcwidth` contraria simplicidade; limitação cosmética).
+  Validação: `python3 -m pytest -q` → 49 passando; `python3 start_app.py
+  --no-install list` funcionando ponta a ponta.
+
 - **(2026-07-08) Effort do Claude Code com modelos do OpenRouter — verificado e documentado:** o *effort* (low/medium/high/max) viaja no formato Anthropic (thinking) e o OpenRouter traduz para o parâmetro `reasoning` de cada provedor (OpenAI/DeepSeek: effort direto; Gemini: `thinkingLevel`; níveis não suportados mapeiam para o mais próximo). Em modelos **sem** reasoning o parâmetro é ignorado silenciosamente — não muda qualidade nem custo. Validado contra a doc oficial do OpenRouter (Reasoning Tokens e Claude Code Integration); seção nova no README ("Effort no Claude Code com modelos do OpenRouter"). Nenhum código alterado.
 
 ## Testes
 
-`python3 -m pytest -q` → 47 testes passando (gravação/validação de chave e
+`python3 -m pytest -q` → 49 testes passando (gravação/validação de chave e
 permissão por SO, prioridade de env var, montagem de ambiente provider/assinatura,
 catálogo de modelos e ordenação por preço, registro de interfaces, comandos de
-instalação por SO, gate de consentimento de script).
+instalação por SO, gate de consentimento de script, navegação do menu —
+voltar/opção inválida em `_pick_from`).
 
 ## Verificação manual feita
 

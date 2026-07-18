@@ -13,7 +13,7 @@ acontecem todos por ele, sem decorar argumento. As flags abaixo existem so como
 atalho avancado e nao sao necessarias para uso normal:
 
     python start_app.py --no-install   # pula a checagem/instalacao de deps
-    python start_app.py key set        # repassado ao openia (atalho)
+    python start_app.py key add        # repassado ao openia (atalho)
     python start_app.py list           # repassado ao openia (atalho)
 
 Adaptacao do contrato GUIA-START-APP-SCRIPT.md: este projeto e uma CLI

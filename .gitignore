@@ -1,5 +1,5 @@
-
-/Padrão de qualidade - Felixo System Design
+# Pasta local do padrão de qualidade (repositório próprio, não versionada aqui).
+/Padrão de qualidade - Felixo System Design/
 
 # Segredos: as chaves do OpenRouter nunca devem ser versionadas.
 openia/keys.json
@@ -16,4 +16,3 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
-/Padr├úo de qualidade - Felixo System Design

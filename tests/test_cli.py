@@ -31,3 +31,16 @@ def test_decide_mode_sem_assinatura_sempre_provider():
     """Interface que não suporta assinatura nunca pergunta: é sempre provider."""
     iface = registry.get("opencode")
     assert cli._decide_mode(iface, False, False) is True
+
+
+def test_pick_from_zero_devolve_none(monkeypatch):
+    """Escolher 0 (voltar) devolve None, nunca um índice."""
+    monkeypatch.setattr(cli.ui, "ask_number", lambda *a, **k: 0)
+    assert cli._pick_from("t", ["a", "b"]) is None
+
+
+def test_pick_from_repete_ate_opcao_valida(monkeypatch):
+    """Opção fora do intervalo repete o menu (em loop) até uma escolha válida."""
+    respostas = iter([99, -1, 2])
+    monkeypatch.setattr(cli.ui, "ask_number", lambda *a, **k: next(respostas))
+    assert cli._pick_from("t", ["a", "b"]) == 1

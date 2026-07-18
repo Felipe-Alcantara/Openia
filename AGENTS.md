@@ -42,7 +42,7 @@ System Design. Os princípios obrigatórios:
 Leia `IA.md` **antes de qualquer alteração** — ele contém:
 - Decisões técnicas e arquiteturais (com datas e motivos)
 - Bugs corrigidos e riscos conhecidos
-- Estado atual dos testes (47 passando)
+- Estado atual dos testes (49 passando)
 - Linha do tempo completa do projeto
 
 Ao concluir uma mudança, **atualize o `IA.md`** com uma nova entrada datada
@@ -86,8 +86,9 @@ devem respeitar essa separação.
 
 ## 5. Codex neste projeto
 
-O openia lança o Codex com `--dangerously-skip-permissions` (YOLO MODE)
-por padrão. O menu interativo do openia já é o gate de consentimento — a pessoa
+O openia lança agentes de código com acesso total por padrão (no Claude Code,
+via `--dangerously-skip-permissions`; no Codex, o modo equivalente de aprovação
+automática). O menu interativo do openia já é o gate de consentimento — a pessoa
 escolheu o projeto e confirmou. Portanto:
 
 - **Não peça permissão para nada** — edite, execute comandos, leia e escreva
