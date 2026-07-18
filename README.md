@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Typer](https://img.shields.io/badge/CLI-Typer-009688?style=for-the-badge&logo=typer&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/OpenRouter-API-6E56CF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-49%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-54%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — tudo por um menu interativo.**
@@ -74,7 +74,7 @@ Openia/
 │   ├── ui.py                   # Apresentação do menu (molduras, cores, prompts)
 │   └── usage.py                # Uso/saldo no OpenRouter e validação de chave
 │
-├── 📁 tests/                   # Testes (pytest) — 49 passando
+├── 📁 tests/                   # Testes (pytest) — 54 passando
 ├── 📁 scripts/                 # Instaladores do comando `openia` por shell
 ├── start_app.py                # Porta de entrada única: menu interativo
 ├── IA.md                       # Contexto operacional (decisões, bugs, testes)
@@ -97,8 +97,9 @@ python start_app.py
 No menu você escolhe tudo sem decorar comando — as quatro ações do contrato de
 porta de entrada estão lá: **Iniciar/Rodar** uma interface, **Instalar/Setup**
 de uma CLI, **Configurar** a chave do OpenRouter (gere em
-https://openrouter.ai/keys) e **Status/Sair**. Quando a sessão termina, você
-volta ao menu. Para sair, escolha `0`.
+https://openrouter.ai/keys) e **Status/Sair**. Agentes de código abrem **num
+terminal novo** e o menu continua livre na hora; chats rodam aqui mesmo e, quando
+a sessão termina, você volta ao menu. Para sair, escolha `0`.
 
 ```
 ╭──────────────────────────────────────────────────────────────╮
@@ -131,8 +132,15 @@ volta ao menu. Para sair, escolha `0`.
 Ao iniciar um **agente de código** (Claude Code, opencode, cline, OpenClaw), o
 openia pergunta **em qual pasta** ele deve rodar — essa é a raiz do projeto que o
 agente lê e edita. Por padrão é o diretório atual (Enter aceita); você pode
-digitar outro caminho. Assim o agente já abre no repositório certo, **sem
-precisar indicar o caminho no prompt**.
+digitar outro caminho, ou `0` para voltar ao menu. Assim o agente já abre no
+repositório certo, **sem precisar indicar o caminho no prompt**.
+
+O agente abre **em uma nova janela de terminal** (Windows/macOS/Linux; no Linux,
+o primeiro emulador encontrado — x-terminal-emulator, gnome-terminal, konsole,
+kitty…), e o menu do openia fica livre imediatamente: dá para abrir outro agente,
+ver o uso ou sair. Se nenhum emulador existir (ex.: sessão SSH pura), o agente
+roda no terminal atual, como antes. A chave nunca viaja no comando do terminal
+novo — o processo relançado a carrega do `keys.json`.
 
 > **Claude Code — histórico:** o Claude Code indexa o histórico de sessões
 > **pela pasta do projeto** (`~/.claude/projects/<caminho>`). Para o `/resume`
@@ -294,8 +302,8 @@ python3 -m pytest -q
 Cobrem gravação/validação de chave e permissão por SO, prioridade de env var,
 montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
-consentimento de script e a navegação do menu (voltar/opção inválida).
-**49 testes passando.**
+consentimento de script, a navegação do menu (voltar/opção inválida) e o
+relançamento de agentes em terminal novo. **54 testes passando.**
 
 ---
 

@@ -142,3 +142,25 @@ def test_env_sem_provider_remove_variaveis(monkeypatch):
     assert "ANTHROPIC_AUTH_TOKEN" not in env
     assert "ANTHROPIC_BASE_URL" not in env
     assert "ANTHROPIC_API_KEY" not in env
+
+
+def test_open_in_new_terminal_sem_emulador_devolve_false(monkeypatch):
+    """Sem emulador no PATH (ex.: SSH puro), devolve False para o chamador decidir."""
+    monkeypatch.setattr(runner.os, "name", "posix")
+    monkeypatch.setattr(runner.sys, "platform", "linux")
+    monkeypatch.setattr(runner.shutil, "which", lambda x: None)
+    assert runner.open_in_new_terminal(["echo", "oi"]) is False
+
+
+def test_open_in_new_terminal_usa_emulador_disponivel(monkeypatch):
+    """Acha o primeiro emulador do PATH e lança o comando nele, sem bloquear."""
+    monkeypatch.setattr(runner.os, "name", "posix")
+    monkeypatch.setattr(runner.sys, "platform", "linux")
+    monkeypatch.setattr(
+        runner.shutil, "which",
+        lambda x: "/usr/bin/konsole" if x == "konsole" else None,
+    )
+    chamadas = []
+    monkeypatch.setattr(runner.subprocess, "Popen", lambda cmd, **kw: chamadas.append(cmd))
+    assert runner.open_in_new_terminal(["prog", "--flag"]) is True
+    assert chamadas == [["/usr/bin/konsole", "-e", "prog", "--flag"]]

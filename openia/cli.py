@@ -68,7 +68,7 @@ def _ensure_key() -> str:
     if not api_key:
         raise _err(
             "nenhuma chave do OpenRouter configurada. "
-            "Rode 'openia key set' ou exporte OPENROUTER_API_KEY."
+            "Rode 'openia key add' ou exporte OPENROUTER_API_KEY."
         )
     return api_key
 
@@ -298,7 +298,11 @@ def run(
 
     api_key = _ensure_key() if use_provider else None
     model_id = _decide_model(iface, model=model, no_model=no_model) if use_provider else None
-    cwd = _resolve_workdir(iface, directory)
+    try:
+        cwd = _resolve_workdir(iface, directory)
+    except _Cancelado:
+        ui.info("cancelado.", emoji="↩️")
+        raise typer.Exit(code=0)
 
     try:
         code = runner.run(
@@ -373,6 +377,8 @@ def _choose_workdir(iface: AIInterface) -> str:
     aberto no editor.
 
     Mostra o diretório atual como padrão (Enter aceita) e valida a pasta digitada.
+    Digitar ``0`` cancela e volta ao menu (``_Cancelado``) — para uma pasta
+    literalmente chamada ``0``, use ``./0`` ou o caminho completo.
     """
     from pathlib import Path
 
@@ -389,10 +395,15 @@ def _choose_workdir(iface: AIInterface) -> str:
 
     while True:
         resposta = typer.prompt(
-            typer.style("📁 Caminho do projeto (Enter = atual)", fg=typer.colors.CYAN),
+            typer.style(
+                "📁 Caminho do projeto (Enter = atual, 0 = voltar)",
+                fg=typer.colors.CYAN,
+            ),
             default=str(atual),
             show_default=False,
         ).strip()
+        if resposta == "0":
+            raise _Cancelado
         alvo = Path(resposta).expanduser()
         if not alvo.exists():
             ui.error(f"a pasta não existe: {alvo}")
@@ -776,12 +787,48 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
     cwd = _choose_workdir(iface) if iface.is_code_agent else None
 
     ui.banner(f"{iface.emoji}  iniciando {iface.name}")
+
+    # Agentes de código são sessões longas: abrem num terminal novo para o menu
+    # continuar livre aqui. O comando relançado é o próprio openia (`run` com
+    # flags explícitas) — a chave nunca viaja por argumento; o processo novo a
+    # carrega do keys.json.
+    if iface.is_code_agent and runner.open_in_new_terminal(
+        _relaunch_cmd(iface, use_provider, model_id, cwd)
+    ):
+        ui.success(f"{iface.name} está abrindo em um novo terminal.")
+        ui.info("o menu continua livre aqui — pode iniciar outra coisa ou sair.", emoji="↩️")
+        return
+    if iface.is_code_agent:
+        ui.warn(
+            "nenhum emulador de terminal encontrado; rodando aqui mesmo "
+            "(o menu volta quando a sessão terminar)."
+        )
+
     try:
         runner.run(iface, api_key, model_id=model_id, use_provider=use_provider, cwd=cwd)
     except runner.ToolingError as exc:
         ui.error(str(exc))
         return
     ui.info("a sessão terminou — voltando ao menu.", emoji="↩️")
+
+
+def _relaunch_cmd(
+    iface: AIInterface, use_provider: bool, model_id: str | None, cwd: str | None
+) -> list[str]:
+    """Monta o ``openia run`` equivalente às escolhas do menu, para o terminal novo.
+
+    Todas as decisões já tomadas viram flags explícitas (modo, modelo, pasta),
+    então o processo novo inicia direto, sem repetir perguntas. Nenhum segredo
+    entra no comando: a chave ativa é carregada do ``keys.json`` pelo processo
+    novo (visível em listagem de processos, o comando não pode vazar a chave).
+    """
+    cmd = [sys.executable, "-m", "openia", "run", iface.key,
+           "--provider" if use_provider else "--subscription"]
+    if use_provider:
+        cmd += ["-m", model_id] if model_id else ["--no-model"]
+    if cwd:
+        cmd += ["-C", cwd]
+    return cmd
 
 
 def force_utf8_output() -> None:

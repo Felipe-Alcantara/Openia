@@ -93,15 +93,41 @@ Responsabilidades separadas em camadas finas:
   Validação: `python3 -m pytest -q` → 49 passando; `python3 start_app.py
   --no-install list` funcionando ponta a ponta.
 
+- **[2026-07-18] Bug do "0" na pasta + agentes abrem em terminal novo (pedido do
+  usuário):** dois problemas relacionados no fluxo de agentes de código. (1) **Bug
+  do 0:** `_choose_workdir` não tinha opção de voltar — digitar `0` era tratado
+  como caminho ("a pasta não existe: 0") num loop sem saída. Agora `0` levanta
+  `_Cancelado` e volta ao menu (no comando `run`, sai limpo com aviso); pasta
+  literalmente chamada `0` ainda é alcançável via `./0` ou caminho completo.
+  (2) **Menu bloqueado pelo agente:** `runner.run` é síncrono, então abrir o
+  Claude Code prendia o menu até a sessão acabar. Agora agentes de código
+  (`is_code_agent`) abrem **numa nova janela de terminal** e o menu volta na
+  hora. Implementação: `runner.open_in_new_terminal(cmd)` (camada de SO —
+  Windows `CREATE_NEW_CONSOLE`; macOS `osascript`/Terminal.app com escaping de
+  AppleScript; Linux/BSD tenta x-terminal-emulator → gnome-terminal → konsole →
+  xfce4-terminal → kitty → alacritty → xterm) e `cli._relaunch_cmd`, que traduz
+  as escolhas do menu em `openia run <iface> --provider|--subscription [-m id |
+  --no-model] [-C pasta]` — flags explícitas, então o processo novo inicia sem
+  repetir perguntas. **Segurança:** nenhum segredo viaja no comando do terminal
+  novo (comando é visível em listagem de processos); o processo relançado carrega
+  a chave ativa do `keys.json` sozinho. **Fallback:** sem emulador no PATH (ex.:
+  SSH puro), avisa e roda no terminal atual como antes. Chats (orchat/aichat/llm)
+  não mudaram: rodam no terminal atual. Drift extra corrigido: `_ensure_key`
+  mencionava `openia key set` (o comando é `key add`). Validação: 5 testes novos
+  (0 cancela; `_relaunch_cmd` provider/assinatura sem segredo; emulador
+  encontrado/ausente) → 54 passando; smoke test real no Linux abriu janela nova
+  via x-terminal-emulator (`lancou terminal novo: True`).
+
 - **(2026-07-08) Effort do Claude Code com modelos do OpenRouter — verificado e documentado:** o *effort* (low/medium/high/max) viaja no formato Anthropic (thinking) e o OpenRouter traduz para o parâmetro `reasoning` de cada provedor (OpenAI/DeepSeek: effort direto; Gemini: `thinkingLevel`; níveis não suportados mapeiam para o mais próximo). Em modelos **sem** reasoning o parâmetro é ignorado silenciosamente — não muda qualidade nem custo. Validado contra a doc oficial do OpenRouter (Reasoning Tokens e Claude Code Integration); seção nova no README ("Effort no Claude Code com modelos do OpenRouter"). Nenhum código alterado.
 
 ## Testes
 
-`python3 -m pytest -q` → 49 testes passando (gravação/validação de chave e
+`python3 -m pytest -q` → 54 testes passando (gravação/validação de chave e
 permissão por SO, prioridade de env var, montagem de ambiente provider/assinatura,
 catálogo de modelos e ordenação por preço, registro de interfaces, comandos de
 instalação por SO, gate de consentimento de script, navegação do menu —
-voltar/opção inválida em `_pick_from`).
+voltar/opção inválida em `_pick_from`, 0 cancela o passo da pasta — e
+relançamento de agentes em terminal novo sem segredo no comando).
 
 ## Verificação manual feita
 

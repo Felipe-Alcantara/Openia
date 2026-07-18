@@ -42,7 +42,7 @@ System Design. Os princípios obrigatórios:
 Leia `IA.md` **antes de qualquer alteração** — ele contém:
 - Decisões técnicas e arquiteturais (com datas e motivos)
 - Bugs corrigidos e riscos conhecidos
-- Estado atual dos testes (49 passando)
+- Estado atual dos testes (54 passando)
 - Linha do tempo completa do projeto
 
 Ao concluir uma mudança, **atualize o `IA.md`** com uma nova entrada datada

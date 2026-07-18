@@ -152,6 +152,51 @@ def run(
     return completed.returncode
 
 
+def open_in_new_terminal(cmd: list[str]) -> bool:
+    """Tenta abrir ``cmd`` numa nova janela de terminal do sistema.
+
+    Devolve ``True`` se conseguiu lançar (o processo roda na janela nova e esta
+    função retorna na hora), ou ``False`` se nenhum emulador de terminal foi
+    encontrado — o chamador decide o fallback (ex.: rodar no terminal atual).
+
+    Segurança: ``cmd`` não deve carregar segredo (chave, token) — em vez disso,
+    relance o próprio openia (``openia run …``), que carrega a chave ativa do
+    ``keys.json`` já dentro do processo novo.
+    """
+    if os.name == "nt":
+        # Console novo nativo do Windows; não depende de emulador externo.
+        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        return True
+    if sys.platform == "darwin":
+        import shlex
+
+        linha = " ".join(shlex.quote(parte) for parte in cmd)
+        # AppleScript exige escapar \ e " dentro da string do 'do script'.
+        linha_applescript = linha.replace("\\", "\\\\").replace('"', '\\"')
+        subprocess.Popen(
+            ["osascript", "-e",
+             f'tell application "Terminal" to do script "{linha_applescript}"'],
+        )
+        return True
+    # Linux/BSD: primeiro emulador conhecido no PATH. x-terminal-emulator vem
+    # antes porque respeita o terminal padrão escolhido pelo usuário (Debian).
+    emuladores: tuple[tuple[str, list[str]], ...] = (
+        ("x-terminal-emulator", ["-e"]),
+        ("gnome-terminal", ["--"]),
+        ("konsole", ["-e"]),
+        ("xfce4-terminal", ["-x"]),
+        ("kitty", []),
+        ("alacritty", ["-e"]),
+        ("xterm", ["-e"]),
+    )
+    for nome, prefixo in emuladores:
+        exe = shutil.which(nome)
+        if exe:
+            subprocess.Popen([exe, *prefixo, *cmd])
+            return True
+    return False
+
+
 def _env_without_provider(interface: AIInterface) -> dict[str, str]:
     """Ambiente do sistema sem as variáveis que apontariam para o OpenRouter.
 

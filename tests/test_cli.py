@@ -44,3 +44,31 @@ def test_pick_from_repete_ate_opcao_valida(monkeypatch):
     respostas = iter([99, -1, 2])
     monkeypatch.setattr(cli.ui, "ask_number", lambda *a, **k: next(respostas))
     assert cli._pick_from("t", ["a", "b"]) == 1
+
+
+def test_choose_workdir_zero_cancela(monkeypatch):
+    """Digitar 0 no passo da pasta cancela e volta ao menu (bug: antes virava
+    'a pasta não existe: 0' num loop sem saída)."""
+    import typer
+
+    monkeypatch.setattr(typer, "prompt", lambda *a, **k: "0")
+    iface = registry.get("claudecode")
+    with pytest.raises(cli._Cancelado):
+        cli._choose_workdir(iface)
+
+
+def test_relaunch_cmd_provider_com_modelo():
+    """Relançamento no terminal novo vira `openia run` com flags explícitas —
+    sem prompt repetido e sem segredo no comando."""
+    iface = registry.get("claudecode")
+    cmd = cli._relaunch_cmd(iface, use_provider=True, model_id="anthropic/x", cwd="/tmp/proj")
+    assert cmd[1:] == ["-m", "openia", "run", "claudecode",
+                       "--provider", "-m", "anthropic/x", "-C", "/tmp/proj"]
+    assert not any("sk-" in parte for parte in cmd)  # nenhuma chave viaja por argumento
+
+
+def test_relaunch_cmd_assinatura_sem_modelo():
+    """Modo assinatura não passa modelo (não há provider); pasta ainda vai por -C."""
+    iface = registry.get("claudecode")
+    cmd = cli._relaunch_cmd(iface, use_provider=False, model_id=None, cwd="/tmp/proj")
+    assert cmd[1:] == ["-m", "openia", "run", "claudecode", "--subscription", "-C", "/tmp/proj"]
