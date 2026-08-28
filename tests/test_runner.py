@@ -22,11 +22,78 @@ SCRIPT_IFACE = AIInterface(
     install_script="https://example.com/install",
 )
 
+PYTHON_IFACE = AIInterface(
+    key="exemplo_python",
+    name="ExemploPython",
+    description="teste",
+    ecosystem=Ecosystem.PYTHON,
+    package="exemplo-python",
+    command="exemplo_python",
+    homepage="https://example.com",
+)
+
 
 def test_install_script_sem_consentimento_falha():
     with pytest.raises(runner.ToolingError) as exc:
         runner.install(SCRIPT_IFACE, allow_script=False)
     assert "script remoto" in str(exc.value)
+
+
+class _FakeCompletedProcess:
+    def __init__(self, returncode, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def test_install_python_repete_com_break_system_packages_quando_pep668(monkeypatch):
+    chamadas = []
+
+    def fake_run(cmd, capture_output=True, text=True):
+        chamadas.append(cmd)
+        if len(chamadas) == 1:
+            return _FakeCompletedProcess(
+                1, stderr="error: externally-managed-environment\n..."
+            )
+        return _FakeCompletedProcess(0, stdout="Successfully installed exemplo-python")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    runner.install(PYTHON_IFACE)  # não deve levantar
+
+    assert len(chamadas) == 2
+    assert "--break-system-packages" not in chamadas[0]
+    assert chamadas[1][-1] == "--break-system-packages"
+
+
+def test_install_python_nao_repete_quando_falha_por_outro_motivo(monkeypatch):
+    chamadas = []
+
+    def fake_run(cmd, capture_output=True, text=True):
+        chamadas.append(cmd)
+        return _FakeCompletedProcess(1, stderr="ConnectionError: could not resolve host")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    with pytest.raises(runner.ToolingError) as exc:
+        runner.install(PYTHON_IFACE)
+
+    assert len(chamadas) == 1
+    assert "ConnectionError" in str(exc.value)
+    assert "PEP 668" not in str(exc.value)
+
+
+def test_install_python_mensagem_clara_quando_pep668_persiste(monkeypatch):
+    def fake_run(cmd, capture_output=True, text=True):
+        return _FakeCompletedProcess(1, stderr="error: externally-managed-environment")
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    with pytest.raises(runner.ToolingError) as exc:
+        runner.install(PYTHON_IFACE)
+
+    assert "--break-system-packages" in str(exc.value)
+    assert "PEP 668" in str(exc.value)
 
 
 def test_script_install_unix_usa_curl_sh(monkeypatch):

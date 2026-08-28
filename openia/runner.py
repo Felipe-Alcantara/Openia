@@ -23,6 +23,15 @@ class ToolingError(RuntimeError):
     """Erro previsível ao instalar ou executar uma interface."""
 
 
+# Debian 12+/Ubuntu 23.04+ (inclui a 24.04 LTS) recusam `pip install` fora de
+# venv com esse erro (PEP 668) — mesmo instalando direto no sistema, que é a
+# decisão de instalação já tomada para as interfaces (ver docstring do módulo).
+# Repetir uma vez com --break-system-packages segue essa mesma decisão em vez
+# de forçar isolamento por venv/pipx que o produto optou por não ter (achado
+# de 28/08/2026, medido via Felixo AI Core em Ubuntu 24.04).
+_EXTERNALLY_MANAGED_ENVIRONMENT_MARKER = "externally-managed-environment"
+
+
 def _require(executable: str, dica: str) -> str:
     """Garante que um executável existe no PATH ou levanta erro claro."""
     found = shutil.which(executable)
@@ -65,13 +74,36 @@ def install(interface: AIInterface, allow_script: bool = False) -> None:
         raise ToolingError(f"ecossistema não suportado: {interface.ecosystem}")
 
     result = subprocess.run(cmd, capture_output=True, text=True)
+    retried = False
+    if (
+        result.returncode != 0
+        and interface.ecosystem is Ecosystem.PYTHON
+        and _is_externally_managed_environment_error(result)
+    ):
+        retried = True
+        cmd = [*cmd, "--break-system-packages"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
     if result.returncode != 0:
         alvo = interface.install_script or f"pacote '{interface.package}'"
+        motivo_pep668 = (
+            "\nO Python deste sistema bloqueia instalação fora de venv (PEP 668); "
+            "já repetimos automaticamente com --break-system-packages e mesmo "
+            "assim falhou."
+            if retried
+            else ""
+        )
         raise ToolingError(
             f"falha ao instalar {interface.name} ({alvo}).\n"
             f"Comando: {' '.join(cmd)}\n"
             f"{result.stderr.strip() or result.stdout.strip()}"
+            f"{motivo_pep668}"
         )
+
+
+def _is_externally_managed_environment_error(result: subprocess.CompletedProcess) -> bool:
+    """Diz se um `pip install` falhou por PEP 668 (ambiente gerenciado pelo SO)."""
+    return _EXTERNALLY_MANAGED_ENVIRONMENT_MARKER in (result.stderr or "")
 
 
 def _script_install_cmd(interface: AIInterface) -> list[str]:

@@ -208,3 +208,36 @@ Validação: `python3 -m pytest -q` → **62 testes passando**. Os novos testes
 cobrem contratos JSON, stdin sem vazamento, seleção dos adaptadores, comando
 preparatório e falha segura antes de iniciar a interface. Não foram usados
 arquivos de chave reais nem uma conversa remota com provedor.
+
+## [2026-08-28] Instalação via pip passa a sobreviver ao PEP 668 (Debian/Ubuntu recentes)
+
+Achado durante a validação do launcher pelo Felixo AI Core: `runner.install()`
+para interfaces do ecossistema Python (`pip install --upgrade <pacote>`) falhava
+com `error: externally-managed-environment` em qualquer Debian 12+/Ubuntu 23.04+
+(inclui a 24.04 LTS, atual) — a mesma decisão de instalar direto no sistema, sem
+venv/pipx, que já era intencional aqui, mas sem o flag que o próprio pip pede
+para confirmar essa escolha explicitamente. Reproduzido ao vivo: `orchat`
+desinstalado, `runner.install()` batia nesse erro sempre.
+
+`install()` agora repete a chamada uma única vez com `--break-system-packages`
+quando a primeira falha vem exatamente desse erro (checagem pelo texto
+`externally-managed-environment` no stderr, só para o ecossistema PYTHON — Node
+e Script não são afetados e não são tocados). Se a segunda tentativa também
+falhar, a mensagem de erro deixa explícito que já tentamos com o flag, em vez
+de só devolver o stderr cru do pip.
+
+### Validação
+
+- `python3 -m pytest -q`: **65/65** testes (62 + 3 novos: repete e resolve,
+  não repete por outro motivo, mensagem clara quando persiste).
+- `ruff check .`: sem erros.
+- Medido contra o pip real deste Ubuntu 24.04: desinstalei `orchat` de verdade
+  (`pip uninstall`) e chamei `runner.install()` sem nenhum flag manual — a
+  instalação completou sozinha e `orchat --version` respondeu `OrChat v1.4.6`
+  depois.
+
+### Limite
+
+Não testei se o mesmo comportamento é necessário em Fedora/openSUSE (que também
+adotaram PEP 668) nem o efeito em macOS/Windows, onde esse erro não deveria
+ocorrer.
