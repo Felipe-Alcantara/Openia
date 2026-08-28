@@ -79,3 +79,17 @@ def test_claudecode_suporta_assinatura():
     assert registry.get("claudecode").supports_subscription is True
     # As demais não suportam (padrão).
     assert registry.get("opencode").supports_subscription is False
+
+
+def test_interfaces_expoem_aplicacao_de_modelo_sem_prompt_extra():
+    assert registry.get("orchat").model_arg == "--model"
+    assert registry.get("aichat").model_arg == "--model"
+    assert registry.get("aichat").model_prefix == "openrouter:"
+    assert registry.get("llm").package == "llm-openrouter"
+    assert registry.get("llm").model_arg == "-m"
+    assert registry.get("llm").model_prefix == "openrouter/"
+
+    openclaw = registry.get("openclaw")
+    assert openclaw.model_setup_args == ("models", "set", "{model}")
+    assert openclaw.model_prefix == "openrouter/"
+    assert openclaw.supports_model_selection() is True

@@ -5,10 +5,10 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Typer](https://img.shields.io/badge/CLI-Typer-009688?style=for-the-badge&logo=typer&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/OpenRouter-API-6E56CF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-55%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-62%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — tudo por um menu interativo.**
+**Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — pelo menu do Openia ou pela interface hospedeira.**
 
 [🚀 Como Usar](#-como-usar) • [🧩 Interfaces](#-interfaces-suportadas) • [🔐 Segurança da Chave](#-segurança-da-chave) • [📚 Referência de CLIs de IA](#-referência-melhores-clis-de-ia-para-o-terminal)
 
@@ -17,10 +17,10 @@
 ---
 
 `openia` é um pequeno launcher em Python que tira o atrito de usar CLIs de IA no
-terminal: você escolhe a ferramenta num **menu interativo**, e o openia instala,
-guarda sua chave do OpenRouter com segurança e abre a interface certa já
-configurada. A escolha do **modelo** acontece em dois passos (empresa → modelo),
-com a lista vinda da API do OpenRouter ao vivo.
+terminal: no uso direto, você escolhe a ferramenta num **menu interativo**; em
+integrações, a aplicação hospedeira consulta o catálogo JSON e abre uma interface
+já configurada. O openia continua sendo a fonte única da chave e do catálogo de
+modelos, cuja lista vem da API do OpenRouter ao vivo.
 
 ## 📋 Índice
 
@@ -75,7 +75,7 @@ Openia/
 │   ├── ui.py                   # Apresentação do menu (molduras, cores, prompts)
 │   └── usage.py                # Uso/saldo no OpenRouter e validação de chave
 │
-├── 📁 tests/                   # Testes (pytest) — 55 passando
+├── 📁 tests/                   # Testes (pytest) — 62 passando
 ├── 📁 scripts/                 # Instaladores do comando `openia` por shell
 ├── start_app.py                # Porta de entrada única: menu interativo
 ├── IA.md                       # Contexto operacional (decisões, bugs, testes)
@@ -166,22 +166,32 @@ python3 -m openia run orchat     # instala (se preciso) e abre a interface
 
 ## 🧩 Integração com o Felixo AI Core
 
-O Felixo AI Core pode iniciar o `openia` como um launcher opaco no terminal do
-canvas. O contrato é intencionalmente pequeno: o Felixo verifica `openia
---version`, abre o comando no diretório escolhido e não mantém uma segunda lista
-de interfaces ou modelos.
+O Felixo AI Core pode iniciar o `openia` como um launcher no terminal do canvas.
+O contrato é intencionalmente pequeno: o Felixo verifica `openia --version`,
+consulta `openia list --json` e `openia models --json`, e não mantém uma segunda
+lista de interfaces ou modelos.
 
-Depois que o menu do Openia abrir, a própria ferramenta continua responsável por
-selecionar uma das interfaces registradas em
-[`openia/interfaces/registry.py`](openia/interfaces/registry.py), configurar a
-chave e escolher o modelo. O Felixo não lê, migra ou imprime `keys.json`/`.env`
-e não passa a chave em argumentos.
+Na configuração de spawn do Felixo, a pessoa escolhe a interface, o modelo e a
+chave na própria interface gráfica. A chave é enviada uma vez ao comando oculto
+`openia key set-stdin felixo --json` por stdin; ela nunca entra em argumento,
+preferência do canvas ou saída devolvida ao renderer. Depois o terminal nasce
+com uma chamada explícita, sem prompt de configuração:
+
+```text
+openia run <interface> --provider --model <empresa/modelo> --dir <projeto>
+```
+
+Quando o modelo fica em branco, o host usa `--no-model`. O registro em
+[`openia/interfaces/registry.py`](openia/interfaces/registry.py) continua sendo
+a fonte única de como cada CLI recebe o modelo: por flag, variável de ambiente
+ou comando preparatório não interativo. O menu próprio sem argumentos continua
+disponível para uso manual.
 
 Na tela **Modelos > CLIs oficiais**, a instalação do Openia vem do repositório
 publicado e pede consentimento antes de executar o `pip` remoto. O Felixo usa
 `python3` no Linux/macOS e `py` no Windows; após a instalação, o botão de
-configuração apenas abre o menu normal do Openia. Se Python ou pip faltarem, a
-mensagem de detecção orienta a instalação manual.
+configuração de spawn consulta os contratos JSON acima. Se Python ou pip
+faltarem, a mensagem de detecção orienta a instalação manual.
 
 Para conferir a versão que o Felixo encontrará:
 
@@ -202,14 +212,18 @@ Os modelos de cada empresa são listados **do mais caro ao mais barato** (preço
 de saída por milhão de tokens, mostrado em cada linha) — assim os modelos mais
 capazes tendem a ficar no topo e os `free` no fim.
 
-Como cada CLI aceita o modelo de um jeito, o openia é honesto sobre isso:
+Como cada CLI aceita o modelo de um jeito, o registro declara a adaptação e o
+openia aplica antes de abrir a ferramenta:
 
-- **opencode** e **cline** aceitam o id do OpenRouter por flag — o openia aplica sozinho.
-- **orchat**, **aichat**, **llm** e **openclaw** escolhem o modelo na própria
-  interface (formato próprio) — o openia mostra qual modelo usar lá dentro.
+- **orchat**, **aichat**, **cline**, **opencode** e **Claude Code** recebem uma
+  flag de modelo.
+- **llm** recebe o namespace `openrouter/<empresa>/<modelo>` usado pelo plugin.
+- **openclaw** executa `openclaw models set openrouter/<empresa>/<modelo>` antes
+  da sessão principal.
 
-Tudo isso acontece dentro do menu. Quem preferir linha de comando ainda pode usar
-`run <interface> -m <empresa/modelo>` ou `--no-model`, mas não é necessário.
+Tudo isso também funciona sem menu. Quem preferir linha de comando pode usar
+`run <interface> -m <empresa/modelo>` ou `--no-model`; no Felixo, a interface
+gráfica monta os mesmos argumentos.
 
 ---
 
@@ -330,7 +344,7 @@ montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
 consentimento de script, a navegação do menu (voltar/opção inválida) e o
 relançamento de agentes em terminal novo e detecção externa por `--version`.
-**55 testes passando.**
+**62 testes passando.**
 
 ---
 
@@ -482,8 +496,9 @@ goose
 
 - **Instalação direto no sistema** (pip/npm global), sem venv/pipx — simples,
   mas sem isolamento; atualizar uma CLI pode afetar dependências do sistema.
-- **`openclaw`** precisa do passo `onboard` para gravar a chave; o openia mostra
-  o comando, mas não confere se você o rodou.
+- **`openclaw`** pode precisar do passo `onboard` inicial para registrar o
+  provedor; o modelo é aplicado automaticamente depois que essa configuração
+  local existe.
 - **Preço como proxy de qualidade** é imperfeito: um modelo novo e bom pode ser
   barato e cair no fim da lista. É um critério prático, não um ranking de capacidade.
 

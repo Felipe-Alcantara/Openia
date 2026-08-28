@@ -58,6 +58,9 @@ class AIInterface:
             ou ``-m``). Quando presente, o openia passa ``model_arg <id>`` ao rodar.
         model_env: Variável de ambiente que define o modelo, como alternativa à
             flag para CLIs que leem o modelo do ambiente.
+        model_setup_args: Argumentos de um comando preparatório que grava o
+            modelo na configuração da ferramenta. ``{model}`` é substituído pelo
+            id formatado; serve para CLIs que têm configuração não interativa.
         model_prefix: Prefixo que a ferramenta espera antes do id do OpenRouter
             (ex.: ``openrouter/`` no OpenClaw). Vazio para a maioria.
         model_select_in_app: Quando ``True``, a ferramenta só permite escolher o
@@ -93,6 +96,7 @@ class AIInterface:
     setup_hint: str | None = None
     model_arg: str | None = None
     model_env: str | None = None
+    model_setup_args: tuple[str, ...] = field(default_factory=tuple)
     model_prefix: str = ""
     model_select_in_app: bool = False
     clear_env: tuple[str, ...] = field(default_factory=tuple)
@@ -106,7 +110,7 @@ class AIInterface:
 
     def supports_model_selection(self) -> bool:
         """Diz se o openia consegue aplicar o modelo automaticamente."""
-        return bool(self.model_arg or self.model_env)
+        return bool(self.model_arg or self.model_env or self.model_setup_args)
 
     def __post_init__(self) -> None:
         if not self.key or not self.key.isidentifier():

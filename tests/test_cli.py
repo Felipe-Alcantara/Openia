@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from typer.testing import CliRunner
 
 from openia import cli
+from openia import config, models
 from openia.interfaces import registry
+
+VALID_KEY = "sk-or-v1-" + "a" * 40
 
 
 def test_version_is_available_for_external_launcher_detection():
@@ -14,6 +19,80 @@ def test_version_is_available_for_external_launcher_detection():
 
     assert result.exit_code == 0
     assert result.stdout.strip() == "0.1.0"
+
+
+def test_list_json_expoe_contrato_sanitizado_de_interfaces():
+    result = CliRunner().invoke(cli.app, ["list", "--json"])
+
+    assert result.exit_code == 0, result.stdout
+    payload = json.loads(result.stdout)
+    assert [item["key"] for item in payload["interfaces"]] == [
+        iface.key for iface in registry.all_interfaces()
+    ]
+    assert all("env_keys" not in item and "api_key" not in item for item in payload["interfaces"])
+    openclaw = next(item for item in payload["interfaces"] if item["key"] == "openclaw")
+    assert openclaw["supportsModelSelection"] is True
+
+
+def test_models_json_expoe_apenas_campos_publicos(monkeypatch):
+    monkeypatch.setattr(
+        cli.models,
+        "load_models",
+        lambda force_refresh=False: [
+            models.Model(
+                id="anthropic/claude-sonnet-4",
+                vendor="anthropic",
+                name="Claude Sonnet 4",
+                completion_price=0.000015,
+            )
+        ],
+    )
+
+    result = CliRunner().invoke(cli.app, ["models", "--json"])
+
+    assert result.exit_code == 0, result.stdout
+    assert json.loads(result.stdout) == {
+        "models": [{
+            "id": "anthropic/claude-sonnet-4",
+            "vendor": "anthropic",
+            "name": "Claude Sonnet 4",
+            "completionPrice": 0.000015,
+        }]
+    }
+
+
+def test_key_status_json_nao_revela_a_chave(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "_KEYS_PATH", tmp_path / "keys.json")
+    monkeypatch.setattr(config, "_LEGACY_ENV_PATH", tmp_path / ".env")
+    monkeypatch.delenv(config.ENV_VAR, raising=False)
+    config.add_key("felixo", VALID_KEY)
+
+    result = CliRunner().invoke(cli.app, ["key", "status", "--json"])
+
+    assert result.exit_code == 0, result.stdout
+    assert json.loads(result.stdout) == {
+        "configured": True,
+        "active": "felixo",
+        "storedKeys": 1,
+    }
+    assert VALID_KEY not in result.stdout
+
+
+def test_key_set_stdin_grava_sem_colocar_segredo_no_argumento_ou_saida(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "_KEYS_PATH", tmp_path / "keys.json")
+    monkeypatch.setattr(config, "_LEGACY_ENV_PATH", tmp_path / ".env")
+    monkeypatch.delenv(config.ENV_VAR, raising=False)
+
+    result = CliRunner().invoke(
+        cli.app,
+        ["key", "set-stdin", "felixo", "--json"],
+        input=f"{VALID_KEY}\n",
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert json.loads(result.stdout) == {"ok": True, "configured": True}
+    assert config.load_api_key() == VALID_KEY
+    assert VALID_KEY not in result.stdout
 
 
 def test_decide_mode_voltar_cancela(monkeypatch):

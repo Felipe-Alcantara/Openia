@@ -112,6 +112,65 @@ def test_run_repassa_cwd_ao_subprocess(monkeypatch, tmp_path):
     assert capturado["cwd"] == str(tmp_path)
 
 
+def test_run_aplica_modelo_por_comando_preparatorio_e_depois_abre_interface(monkeypatch):
+    iface = AIInterface(
+        key="configuravel", name="Configuravel", description="x",
+        ecosystem=Ecosystem.NODE, package="x", command="configuravel",
+        homepage="https://example.com",
+        model_prefix="openrouter/",
+        model_setup_args=("models", "set", "{model}"),
+    )
+    monkeypatch.setattr(runner.shutil, "which", lambda x: "/usr/bin/configuravel")
+    chamadas = []
+
+    def fake_run(cmd, env=None, cwd=None):
+        chamadas.append((cmd, env, cwd))
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    assert runner.run(
+        iface,
+        api_key="chave-de-teste",
+        model_id="anthropic/claude-sonnet-4",
+        cwd="/tmp/projeto",
+    ) == 0
+    assert [cmd for cmd, _, _ in chamadas] == [
+        ["/usr/bin/configuravel", "models", "set", "openrouter/anthropic/claude-sonnet-4"],
+        ["/usr/bin/configuravel"],
+    ]
+    assert chamadas[0][1]["OPENROUTER_API_KEY"] == "chave-de-teste"
+    assert all(cwd == "/tmp/projeto" for _, _, cwd in chamadas)
+
+
+def test_run_interrompe_se_comando_preparatorio_do_modelo_falhar(monkeypatch):
+    iface = AIInterface(
+        key="configuravel", name="Configuravel", description="x",
+        ecosystem=Ecosystem.NODE, package="x", command="configuravel",
+        homepage="https://example.com", model_setup_args=("models", "set", "{model}"),
+    )
+    monkeypatch.setattr(runner.shutil, "which", lambda x: "/usr/bin/configuravel")
+    chamadas = []
+
+    def fake_run(cmd, env=None, cwd=None):
+        chamadas.append(cmd)
+
+        class R:
+            returncode = 1
+
+        return R()
+
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    with pytest.raises(runner.ToolingError, match="configurar o modelo"):
+        runner.run(iface, api_key="chave-de-teste", model_id="x/model")
+    assert len(chamadas) == 1
+
+
 def test_run_sem_executavel_no_path_falha(monkeypatch):
     iface = AIInterface(
         key="claude_like", name="ClaudeLike", description="x",

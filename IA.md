@@ -5,8 +5,10 @@
 ## O que é
 
 `openia` é um launcher em Python para CLIs de IA de terminal compatíveis com
-OpenRouter. O usuário escolhe a interface; o programa instala, configura a chave
-e abre a ferramenta. A escolha de modelo é feita dentro de cada CLI.
+OpenRouter. No uso direto, o usuário escolhe a interface pelo menu; hosts como o
+Felixo consultam contratos JSON, gravam a chave via stdin e abrem uma interface
+com modelo e diretório já definidos. O registro do Openia continua sendo a fonte
+única dessas interfaces e do catálogo de modelos.
 
 Stack (caso 3.4 do padrão — scripts/automação): Python + Typer + pytest.
 
@@ -17,7 +19,7 @@ Responsabilidades separadas em camadas finas:
 - `openia/interfaces/base.py` — contrato `AIInterface` (descrição declarativa de uma CLI).
 - `openia/interfaces/registry.py` — registro das interfaces suportadas. **Único lugar a editar para adicionar ferramenta** (Open/Closed).
 - `openia/config.py` — chave do OpenRouter e montagem do ambiente de execução.
-- `openia/runner.py` — instalar / detectar / executar (isola pip, npm e SO); aplica o modelo por flag/env quando a interface suporta.
+- `openia/runner.py` — instalar / detectar / executar (isola pip, npm e SO); aplica o modelo por flag/env ou comando preparatório declarativo quando a interface suporta.
 - `openia/models.py` — catálogo de modelos do OpenRouter: busca `/api/v1/models`, agrupa por empresa, com cache local de 24h e fallback para cache em caso de falha de rede.
 - `openia/ui.py` — apresentação do menu (molduras Unicode, cores, emojis, prompts). Isola a aparência da lógica do `cli.py`.
 - `openia/usage.py` — consulta uso/saldo no OpenRouter (`/api/v1/credits`); usado no menu e na statusline.
@@ -186,3 +188,23 @@ Python/pip e o comportamento nos três sistemas operacionais.
 Validação desta mudança: `python3 -m pytest -q tests/test_cli.py` → 9 testes
 passando, incluindo `--version`. Nenhum arquivo de chave local foi lido ou
 alterado.
+
+## [2026-08-28] Spawn configurável pelo Felixo, sem prompt no terminal
+
+O contrato do launcher foi ampliado para o Felixo configurar o Openia na
+interface gráfica de spawn. Foram adicionados `openia list --json` e
+`openia models --json`, ambos com DTOs públicos e sanitizados, além de
+`openia key status --json` e `openia key set-stdin`. A chave chega somente por
+stdin, é gravada no armazenamento normal do Openia e não aparece em argumentos,
+saída JSON ou logs da integração.
+
+O comando `openia run` agora aceita aplicação declarativa de modelo por flag,
+variável de ambiente ou comando preparatório. O registro atual cobre os
+adaptadores de OrChat, aichat, llm, Cline, OpenCode, OpenClaw e Claude Code;
+OpenClaw usa `models set` antes da sessão. Isso permite que o host escolha o
+modelo uma vez e abra a CLI sem repetir seleção no terminal.
+
+Validação: `python3 -m pytest -q` → **62 testes passando**. Os novos testes
+cobrem contratos JSON, stdin sem vazamento, seleção dos adaptadores, comando
+preparatório e falha segura antes de iniciar a interface. Não foram usados
+arquivos de chave reais nem uma conversa remota com provedor.

@@ -26,8 +26,8 @@ _INTERFACES: tuple[AIInterface, ...] = (
         command="orchat",
         homepage="https://github.com/oop7/OrChat",
         env_keys=("OPENROUTER_API_KEY",),
-        # OrChat escolhe o modelo na própria interface; openia mostra o escolhido.
-        model_select_in_app=True,
+        # OrChat também aceita o modelo por --model.
+        model_arg="--model",
     ),
     AIInterface(
         key="aichat",
@@ -40,9 +40,9 @@ _INTERFACES: tuple[AIInterface, ...] = (
         homepage="https://github.com/sigoden/aichat",
         env_keys=("OPENAI_API_KEY",),
         base_url_env="OPENAI_API_BASE",
-        # aichat usa formato próprio (provider:model), não o id cru do OpenRouter;
-        # então o modelo é aplicado por instrução, não por flag automática.
-        model_select_in_app=True,
+        # aichat usa o formato provider:model para o cliente OpenRouter.
+        model_arg="--model",
+        model_prefix="openrouter:",
     ),
     AIInterface(
         key="llm",
@@ -50,13 +50,15 @@ _INTERFACES: tuple[AIInterface, ...] = (
         name="llm (Simon Willison)",
         description="CLI de LLM extensível, com plugins, logs em SQLite e modo conversa.",
         ecosystem=Ecosystem.PYTHON,
-        package="llm",
+        # O plugin fornece o cliente OpenRouter e o comando llm.
+        package="llm-openrouter",
         command="llm",
         homepage="https://github.com/simonw/llm",
-        env_keys=("OPENAI_API_KEY",),
+        env_keys=("OPENAI_API_KEY", "OPENROUTER_KEY"),
         base_url_env="OPENAI_BASE_URL",
-        # llm registra modelos por alias na config; aplicado por instrução.
-        model_select_in_app=True,
+        # llm-openrouter usa o namespace openrouter/<id>.
+        model_arg="-m",
+        model_prefix="openrouter/",
     ),
     # --- Agentes de código (leem/editam arquivos e rodam comandos) ---
     AIInterface(
@@ -104,10 +106,10 @@ _INTERFACES: tuple[AIInterface, ...] = (
             "    openclaw onboard --auth-choice apiKey "
             "--token-provider openrouter --token \"$OPENROUTER_API_KEY\""
         ),
-        # OpenClaw referencia modelos como openrouter/<empresa>/<modelo>, escolhidos
-        # no onboard/UI; openia mostra o ref pronto.
+        # OpenClaw grava o modelo ativo por um comando próprio, que o runner
+        # executa antes da sessão principal.
         model_prefix="openrouter/",
-        model_select_in_app=True,
+        model_setup_args=("models", "set", "{model}"),
         is_code_agent=True,
     ),
     AIInterface(

@@ -113,8 +113,10 @@ def run(
     para não sobrescrever a autenticação própria da ferramenta (ex.: o login de
     assinatura do Claude Code, que exige ausência de ``ANTHROPIC_*``).
 
-    Se ``model_id`` for dado e a ferramenta aceitar modelo por flag/env, ele é
-    aplicado no formato esperado por ela (ver ``AIInterface.model_ref``).
+    Se ``model_id`` for dado, ele é aplicado no formato esperado por ela (por
+    flag/env ou por um comando preparatório declarativo; ver
+    ``AIInterface.model_ref``). O comando preparatório também não recebe chave
+    por argumento: a chave segue apenas no ambiente do processo.
 
     ``cwd`` define o diretório de trabalho do processo filho. Para agentes de
     código é a raiz do projeto que eles editam — e, no Claude Code, o caminho que
@@ -144,6 +146,15 @@ def run(
             env[interface.model_env] = ref
         if interface.model_arg:
             model_args = [interface.model_arg, ref]
+        if interface.model_setup_args:
+            setup_args = [part.replace("{model}", ref) for part in interface.model_setup_args]
+            setup = subprocess.run(
+                [executable, *setup_args], env=env, cwd=cwd,
+            )
+            if setup.returncode != 0:
+                raise ToolingError(
+                    f"não foi possível configurar o modelo de {interface.name}."
+                )
 
     cmd = [executable, *interface.run_args, *model_args, *(extra_args or [])]
     # Sem capturar saída: a CLI é interativa e assume o terminal do usuário.

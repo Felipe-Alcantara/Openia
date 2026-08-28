@@ -2,15 +2,20 @@
 
 Comandos:
     openia list                  lista as interfaces suportadas
+    openia list --json            contrato de interfaces para integrações
+    openia models --json          contrato do catálogo de modelos
     openia key add [NOME]        adiciona uma chave nomeada do OpenRouter e a ativa
     openia key use <NOME>        define qual chave fica ativa
     openia key list              lista as chaves cadastradas (mascaradas)
+    openia key status --json     informa se existe chave, sem revelar segredo
+    openia key set-stdin NOME    grava uma chave recebida por stdin
     openia install <interface>   instala a interface escolhida
     openia run <interface> ...   roda a interface (instala antes se faltar)
     openia                       menu interativo para escolher e iniciar
 
-A escolha do modelo é feita dentro de cada CLI; o openia cuida de instalar,
-configurar a chave e abrir a ferramenta certa.
+O menu interativo continua disponível para uso direto; integrações como o
+Felixo também podem usar os contratos JSON e ``openia run`` para configurar
+interface, chave e modelo antes de abrir a ferramenta, sem prompts no terminal.
 """
 
 from __future__ import annotations
@@ -158,6 +163,35 @@ def _price_label(model: "models.Model") -> str:
     return f"${model.completion_price * 1_000_000:6.2f}/M"
 
 
+def _interface_payload(iface: AIInterface) -> dict[str, object]:
+    """DTO público da interface; nunca inclui env_keys nem qualquer segredo."""
+    automatic = iface.supports_model_selection()
+    return {
+        "key": iface.key,
+        "name": iface.name,
+        "description": iface.description,
+        "ecosystem": iface.ecosystem.value,
+        "command": iface.command,
+        "homepage": iface.homepage,
+        "modelPrefix": iface.model_prefix,
+        "supportsModelSelection": automatic,
+        "modelSelection": "automatic" if automatic else "inside",
+        "supportsSubscription": iface.supports_subscription,
+        "isCodeAgent": iface.is_code_agent,
+        "emoji": iface.emoji,
+    }
+
+
+def _model_payload(model: "models.Model") -> dict[str, object]:
+    """DTO público de modelo, sem copiar respostas arbitrárias da API."""
+    return {
+        "id": model.id,
+        "vendor": model.vendor,
+        "name": model.name,
+        "completionPrice": model.completion_price,
+    }
+
+
 def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | None:
     """Decide como o modelo será usado e informa o usuário.
 
@@ -177,8 +211,20 @@ def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | N
 
 
 @app.command("list")
-def list_interfaces() -> None:
+def list_interfaces(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emite o contrato sanitizado para integrações."
+    ),
+) -> None:
     """Lista todas as interfaces de IA suportadas."""
+    if json_output:
+        typer.echo(json.dumps({
+            "interfaces": [
+                _interface_payload(iface) for iface in registry.all_interfaces()
+            ]
+        }, ensure_ascii=False))
+        return
+
     typer.secho("Interfaces de IA suportadas:\n", bold=True)
     for iface in registry.all_interfaces():
         marca = "✓ instalada" if runner.is_installed(iface) else "· não instalada"
@@ -187,6 +233,33 @@ def list_interfaces() -> None:
         typer.echo(f"      {iface.description}")
         typer.echo(f"      {iface.homepage}")
     typer.echo("\nUse 'openia run <chave>' para iniciar uma delas.")
+
+
+@app.command("models")
+def list_models(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emite o catálogo sanitizado para integrações."
+    ),
+    refresh: bool = typer.Option(
+        False, "--refresh", help="Ignora o cache fresco e consulta o OpenRouter."
+    ),
+) -> None:
+    """Lista o catálogo público de modelos do OpenRouter."""
+    try:
+        catalogo = models.load_models(force_refresh=refresh)
+    except models.CatalogError as exc:
+        raise _err(str(exc)) from exc
+
+    if json_output:
+        typer.echo(json.dumps({
+            "models": [_model_payload(model) for model in catalogo]
+        }, ensure_ascii=False))
+        return
+
+    for vendor in models.vendors(catalogo):
+        typer.secho(f"\n{vendor}", bold=True)
+        for model in models.models_of(catalogo, vendor):
+            typer.echo(f"  {_price_label(model)}  {model.name}  ({model.id})")
 
 
 @key_app.command("add")
@@ -219,6 +292,50 @@ def key_list() -> None:
     for nk in chaves:
         marca = "● ativa" if nk.name == ativa else "  "
         typer.echo(f"  {marca}  {nk.name}: {_mask(nk.key)}")
+
+
+@key_app.command("status")
+def key_status(
+    json_output: bool = typer.Option(
+        False, "--json", help="Emite apenas estado, sem chave ou máscara."
+    ),
+) -> None:
+    """Informa se há uma chave disponível sem revelar nenhum segredo."""
+    payload = {
+        "configured": bool(config.load_api_key()),
+        "active": config.active_key_name(),
+        "storedKeys": len(config.list_keys()),
+    }
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False))
+        return
+    if payload["configured"]:
+        typer.echo(f"chave configurada (ativa: {payload['active'] or 'ambiente'})")
+    else:
+        typer.echo("nenhuma chave configurada.")
+
+
+@key_app.command("set-stdin", hidden=True)
+def key_set_stdin(
+    nome: str = typer.Argument("felixo", help="Nome amigável da chave."),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emite um resultado sanitizado para integrações."
+    ),
+) -> None:
+    """Grava uma chave lida de stdin, sem colocá-la em argumentos do processo."""
+    chave = sys.stdin.read()
+    try:
+        warning = config.add_key(nome, chave)
+    except ValueError as exc:
+        raise _err(str(exc)) from exc
+
+    if json_output:
+        typer.echo(json.dumps({"ok": True, "configured": True}, ensure_ascii=False))
+        return
+
+    ui.success(f"chave '{nome}' salva e ativada.")
+    if warning:
+        ui.warn(warning)
 
 
 @key_app.command("use")
