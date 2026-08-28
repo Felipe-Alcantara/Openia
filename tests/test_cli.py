@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import pytest
+from typer.testing import CliRunner
 
 from openia import cli
 from openia.interfaces import registry
+
+
+def test_version_is_available_for_external_launcher_detection():
+    result = CliRunner().invoke(cli.app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "0.1.0"
 
 
 def test_decide_mode_voltar_cancela(monkeypatch):

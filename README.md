@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Typer](https://img.shields.io/badge/CLI-Typer-009688?style=for-the-badge&logo=typer&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/OpenRouter-API-6E56CF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-54%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-55%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — tudo por um menu interativo.**
@@ -27,6 +27,7 @@ com a lista vinda da API do OpenRouter ao vivo.
 - [📋 Sobre o Projeto](#-sobre-o-projeto)
 - [📁 Estrutura do Projeto](#-estrutura-do-projeto)
 - [🚀 Como Usar](#-como-usar)
+- [🧩 Integração com o Felixo AI Core](#-integração-com-o-felixo-ai-core)
 - [🧬 Escolha de Modelo (empresa → modelo)](#-escolha-de-modelo-empresa--modelo)
 - [🧩 Interfaces Suportadas](#-interfaces-suportadas)
 - [🔑 Várias Chaves Nomeadas](#-várias-chaves-nomeadas)
@@ -74,7 +75,7 @@ Openia/
 │   ├── ui.py                   # Apresentação do menu (molduras, cores, prompts)
 │   └── usage.py                # Uso/saldo no OpenRouter e validação de chave
 │
-├── 📁 tests/                   # Testes (pytest) — 54 passando
+├── 📁 tests/                   # Testes (pytest) — 55 passando
 ├── 📁 scripts/                 # Instaladores do comando `openia` por shell
 ├── start_app.py                # Porta de entrada única: menu interativo
 ├── IA.md                       # Contexto operacional (decisões, bugs, testes)
@@ -157,11 +158,36 @@ Dá pra chamar o módulo direto (requer `pip install typer`):
 
 ```bash
 python3 -m openia                # menu interativo
-python3 -m openia key set        # pede a chave sem mostrar na tela
+python3 -m openia key add pessoal # pede a chave sem mostrar na tela
 python3 -m openia run orchat     # instala (se preciso) e abre a interface
 ```
 
 > Instalando o pacote (`pip install -e .`) o comando vira apenas `openia`.
+
+## 🧩 Integração com o Felixo AI Core
+
+O Felixo AI Core pode iniciar o `openia` como um launcher opaco no terminal do
+canvas. O contrato é intencionalmente pequeno: o Felixo verifica `openia
+--version`, abre o comando no diretório escolhido e não mantém uma segunda lista
+de interfaces ou modelos.
+
+Depois que o menu do Openia abrir, a própria ferramenta continua responsável por
+selecionar uma das interfaces registradas em
+[`openia/interfaces/registry.py`](openia/interfaces/registry.py), configurar a
+chave e escolher o modelo. O Felixo não lê, migra ou imprime `keys.json`/`.env`
+e não passa a chave em argumentos.
+
+Na tela **Modelos > CLIs oficiais**, a instalação do Openia vem do repositório
+publicado e pede consentimento antes de executar o `pip` remoto. O Felixo usa
+`python3` no Linux/macOS e `py` no Windows; após a instalação, o botão de
+configuração apenas abre o menu normal do Openia. Se Python ou pip faltarem, a
+mensagem de detecção orienta a instalação manual.
+
+Para conferir a versão que o Felixo encontrará:
+
+```bash
+openia --version
+```
 
 ---
 
@@ -303,7 +329,8 @@ Cobrem gravação/validação de chave e permissão por SO, prioridade de env va
 montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
 consentimento de script, a navegação do menu (voltar/opção inválida) e o
-relançamento de agentes em terminal novo. **54 testes passando.**
+relançamento de agentes em terminal novo e detecção externa por `--version`.
+**55 testes passando.**
 
 ---
 

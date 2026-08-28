@@ -21,6 +21,7 @@ from collections.abc import Callable
 
 import typer
 
+from . import __version__
 from . import config, models, runner, ui, usage
 from .interfaces import registry
 from .interfaces.base import AIInterface, Ecosystem
@@ -417,8 +418,16 @@ def _choose_workdir(iface: AIInterface) -> str:
 
 
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False, "--version", help="Mostra a versão do launcher e sai."
+    ),
+) -> None:
     """Sem subcomando: abre o menu interativo de escolha."""
+    if version:
+        typer.echo(__version__)
+        raise typer.Exit()
     if ctx.invoked_subcommand is not None:
         return
     _interactive_menu()

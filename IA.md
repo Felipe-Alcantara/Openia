@@ -168,3 +168,21 @@ relançamento de agentes em terminal novo sem segredo no comando).
 - Suporte opcional a isolamento via pipx/venv como alternativa ao install global.
 - Listar/escolher modelos do OpenRouter direto no menu para as CLIs que aceitam
   modelo por flag.
+
+## [2026-08-28] Contrato de launcher com o Felixo AI Core
+
+O Openia passou a expor `openia --version` para que o Felixo AI Core consiga
+detectar a instalação sem importar o pacote Python nem depender de um clone
+local. A integração trata o Openia como launcher opaco: o Felixo inicia `openia`
+no `cwd` escolhido, mas não copia o registro de interfaces, não mantém catálogo
+paralelo de modelos e não lê ou migra `keys.json`/`.env`.
+
+O Felixo pede consentimento antes de instalar o pacote publicado via `pip` remoto;
+depois disso, a escolha de interface, chave e modelo continua neste menu e segue
+as declarações de `AIInterface`/`registry.py`. O comando não recebe segredo por
+argumento. A documentação do README agora descreve o contrato, os pré-requisitos
+Python/pip e o comportamento nos três sistemas operacionais.
+
+Validação desta mudança: `python3 -m pytest -q tests/test_cli.py` → 9 testes
+passando, incluindo `--version`. Nenhum arquivo de chave local foi lido ou
+alterado.
