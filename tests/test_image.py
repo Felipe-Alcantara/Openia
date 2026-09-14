@@ -248,6 +248,29 @@ def test_provider_unsupported_tem_codigo_distinto_e_nao_expoe_corpo(
     assert segredo not in json.dumps(exc.value.to_dict())
 
 
+def test_provider_inexistente_em_404_nao_e_confundido_com_modelo(tmp_path, monkeypatch):
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url,
+            404,
+            "Not Found",
+            {},
+            io.BytesIO(b"provider not found"),
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageProviderError) as exc:
+        image.generate_image(
+            _request(tmp_path, provider="provider-inexistente", retries=0),
+            VALID_KEY,
+        )
+
+    assert exc.value.code == "provider_unsupported"
+
+
 def test_chave_ausente_e_rejeitada_sem_chamada(tmp_path, monkeypatch):
     monkeypatch.setattr(
         image.urllib.request, "urlopen", lambda *a, **k: pytest.fail("não chamar")

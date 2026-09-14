@@ -278,3 +278,33 @@ HTTP e a referência oficial da Image API:
 https://openrouter.ai/docs/guides/overview/multimodal/image-generation. Este
 limite deve ser exercitado posteriormente com uma credencial de teste e um
 orçamento controlado.
+
+## [2026-09-14] Smoke real de imagem e correção de provider 404
+
+O smoke da task de validação encontrou e corrigiu uma classificação incorreta:
+um provider explicitamente inexistente respondeu HTTP 404, mas o Openia o
+reportava como `model_not_found`. O cliente agora recebe a informação de que
+havia provider selecionado e devolve `provider_unsupported`, mantendo o erro
+seguro; foi adicionado teste de regressão para o caso.
+
+Com uma chave configurada no ambiente (sem imprimir ou persistir seu valor), o
+endpoint real de modelos retornou 52 modelos de imagem. O saldo medido antes da
+geração era US$ 4,117326. Foi feita uma única geração real com
+`openai/gpt-image-1-mini`, prompt mínimo, `quality=low` e `retries=0`: sucesso
+em 8,412 s, JSON válido, um PNG de 1.065.684 bytes e assinatura PNG correta.
+A repetição com a mesma chave de idempotência reutilizou o artefato em 0,295 s,
+sem nova chamada. A tentativa inicial com `output_format=png` foi recusada
+localmente porque o catálogo do modelo não declara esse parâmetro e não criou
+arquivo.
+
+O provider inexistente foi exercitado novamente após o fix, sem gerar imagem;
+as falhas automatizadas de rede, timeout, limite, MIME, cancelamento e segredo
+continuam cobertas pela suíte. O artefato real foi mantido apenas em diretório
+temporário fora do repositório e deve ser removido após a conferência final.
+
+## [2026-09-14] Fechamento do smoke real de imagem
+
+Conferência final concluída: o PNG temporário foi removido do diretório explícito
+criado para o smoke (`dir_exists_after=False`) e não houve alteração no
+repositório durante a execução real. Após a correção de classificação, a suíte
+completa ficou em **85 testes passando**, com `ruff check .` sem erros.

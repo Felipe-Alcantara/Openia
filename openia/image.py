@@ -653,7 +653,9 @@ def _status(response: Any) -> int:
     return int(valor or 200)
 
 
-def _classify_http_error(status: int, phase: str, hint: str) -> ImageError:
+def _classify_http_error(
+    status: int, phase: str, hint: str, *, provider_selected: bool = False
+) -> ImageError:
     if status in {401, 403}:
         return ImageAuthenticationError(
             "a chave do OpenRouter foi rejeitada.", code="authentication_error"
@@ -681,6 +683,11 @@ def _classify_http_error(status: int, phase: str, hint: str) -> ImageError:
             return ImageProviderError(
                 "o serviço de descoberta de modelos não está disponível.",
                 code="provider_unavailable",
+            )
+        if provider_selected or "provider" in hint:
+            return ImageProviderError(
+                "o provider selecionado não suporta esta operação.",
+                code="provider_unsupported",
             )
         return ImageModelError(
             "o modelo solicitado não foi encontrado.", code="model_not_found"
@@ -722,6 +729,7 @@ def _request_json(
     retries: int,
     phase: str,
     idempotency_key: str | None = None,
+    provider_selected: bool = False,
     cancel_event: threading.Event | None = None,
     cancel_checker: CancelChecker | None = None,
     opener: Urlopen | None = None,
@@ -756,7 +764,12 @@ def _request_json(
                 status = _status(response)
                 raw = _read_limited(response, MAX_RESPONSE_BYTES)
                 if not 200 <= status < 300:
-                    erro = _classify_http_error(status, phase, _safe_body_hint(raw))
+                    erro = _classify_http_error(
+                        status,
+                        phase,
+                        _safe_body_hint(raw),
+                        provider_selected=provider_selected,
+                    )
                     if erro.retryable and tentativa < retries:
                         _check_cancel(cancel_event, cancel_checker)
                         sleeper(_retry_delay(tentativa))
@@ -786,7 +799,12 @@ def _request_json(
                 hint = _safe_body_hint(exc.read(8192))
             except (OSError, TypeError):
                 hint = ""
-            erro = _classify_http_error(exc.code, phase, hint)
+            erro = _classify_http_error(
+                exc.code,
+                phase,
+                hint,
+                provider_selected=provider_selected,
+            )
             if erro.retryable and tentativa < retries:
                 _check_cancel(cancel_event, cancel_checker)
                 sleeper(_retry_delay(tentativa))
@@ -1200,6 +1218,7 @@ def generate_image(
             retries=request.retries,
             phase="generate",
             idempotency_key=request_id,
+            provider_selected=bool(request.provider),
             cancel_event=cancel_event,
             cancel_checker=cancel_checker,
             opener=opener,
