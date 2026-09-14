@@ -308,3 +308,45 @@ Conferência final concluída: o PNG temporário foi removido do diretório expl
 criado para o smoke (`dir_exists_after=False`) e não houve alteração no
 repositório durante a execução real. Após a correção de classificação, a suíte
 completa ficou em **85 testes passando**, com `ruff check .` sem erros.
+
+## [2026-09-14] Matriz real e validação empacotada de imagem
+
+Validação da task `Openia/Imagem — completar matriz real de erros e validação
+empacotada`, executada entre 02:33 e 03:08, usando somente a credencial já
+configurada no processo e sem imprimir ou persistir seu valor.
+
+### Validações reais
+
+- O catálogo autenticado retornou 52 modelos; `openai/gpt-image-1-mini`
+  continuou declarando saída `image`, entradas `text,image` e suporte a
+  `quality`.
+- Timeout real com `timeout=1` e `retries=0`: exit 124, código seguro
+  `timeout`, em 1,493 s; nenhum arquivo foi criado e o diretório foi removido.
+- Provider explicitamente inexistente: exit 7, código `provider_unsupported`,
+  em 0,897 s; nenhum artefato foi criado e o diretório foi removido.
+- A diferença observada de uso desde o início desta task foi de
+  aproximadamente US$ 0,006612; a atribuição por operação não foi
+  instrumentada.
+
+### Validação empacotada
+
+- `pip wheel` com isolamento PEP 517 construiu o wheel; a tentativa sem
+  isolamento falhou apenas porque o Python global não tinha
+  `setuptools.build_meta`, sem indicar defeito do pacote.
+- O wheel foi instalado com `pip --target` em diretório isolado e o import foi
+  confirmado a partir do alvo instalado, não do checkout.
+- A geração real pelo pacote retornou exit 0 em 11,151 s, JSON válido, um
+  `image/png` de 1.286.363 bytes no JSON e no disco, caminho absoluto,
+  timestamps e assinatura PNG `89 50 4E 47 0D 0A 1A 0A`. O diretório de teste
+  foi removido ao final.
+
+### Limites externos
+
+O host desta sessão é Windows 11. Não há macOS disponível; o WSL expõe apenas
+a distribuição interna `docker-desktop` e o daemon Docker não está acessível,
+portanto não foi feita uma execução Linux real. Também não foram provocados
+saldo insuficiente (HTTP 402), rate limit (HTTP 429) ou URL de saída expirada:
+isso exigiria consumo/estado externo ou manipulação de uma resposta upstream.
+Esses cenários permanecem bloqueios explícitos para uma janela controlada em
+ambientes e credenciais apropriados. `python -m pytest -q` continua com 85
+testes passando, `ruff check .`, compilação e `git diff --check` sem erros.
