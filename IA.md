@@ -388,3 +388,49 @@ persistido.
 Os bloqueios 402, 429 e URL expirada ficam explicitamente dependentes de uma
 janela futura com credencial, orçamento e provider controlados; não há evidência
 real segura para fabricar esses estados com a conta disponível nesta sessão.
+
+## [2026-09-14] Especificação de multimodalidade e contrato OpenRouter
+
+Revisão da task `Openia/Multimodalidade — especificar capacidade de geração de
+imagens e contrato OpenRouter`, feita após a implementação posterior e contra a
+documentação oficial atual da Image API e de Image Inputs do OpenRouter.
+
+### Decisões do contrato
+
+- Geração e análise/compreensão são operações diferentes. `openia image` é
+  geração não interativa; o núcleo textual e as interfaces `AIInterface` não
+  ganham semântica de imagem por efeito colateral. Uma futura análise deverá
+  ter request/response próprios.
+- A capability é declarada pelo catálogo dedicado de imagens: modalidades de
+  entrada/saída e parâmetros suportados são lidos antes do POST. Modelo sem
+  saída `image`, referência incompatível ou parâmetro não declarado é recusado
+  antes da geração.
+- O request cobre prompt, modelo, referências, quantidade, formato, resolução,
+  proporção, tamanho, qualidade, fundo, compressão, seed, provider, timeout,
+  retry e chave de idempotência. O response é o envelope versionado com
+  requestId, modelo, timestamps e outputs de caminho absoluto, MIME e bytes.
+- A saída canônica é arquivo local materializado. A Image API atual retorna
+  base64 e MIME; o cliente valida assinatura, allowlist e tamanho de 25 MiB.
+  URL de saída é somente compatibilidade defensiva e nunca é devolvida no
+  contrato público.
+- Não há cache persistente de conteúdo de imagem: a idempotência reutiliza um
+  artefato local válido com a mesma chave. O host é dono da retenção do arquivo
+  final; falhas/cancelamentos removem apenas arquivos novos e temporários.
+- O custo por operação não é inventado no response; uso e saldo ficam na
+  consulta de créditos da conta. Cancelamento por Ctrl+C, evento ou
+  cancel-file, timeout, retry seguro e limpeza de parciais são responsabilidades
+  da operação de geração.
+
+### Rastreabilidade e validação
+
+A implementação está em `openia/image.py` e `openia/cli.py`, com documentação
+de uso no README e testes de capability, contrato, persistência, erros e
+segurança em `tests/test_image.py` e `tests/test_cli.py`. A implementação foi
+publicada no commit `d1b542e`; a matriz mais recente de segurança foi publicada
+no commit `1a5d0a1`. A documentação oficial consultada foi:
+https://openrouter.ai/docs/guides/overview/multimodal/image-generation e
+https://openrouter.ai/docs/guides/overview/multimodal/image-understanding.
+
+Validação atual: `python -m pytest -q` → **88 testes passando**, `ruff check .`,
+`python -m compileall -q openia tests` e `git diff --check` sem erros. Não houve
+segredo, imagem privada, header ou URL assinada registrada.

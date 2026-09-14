@@ -262,6 +262,27 @@ Os erros também são JSON seguro, com códigos distintos para chave, modelo,
 limite, rede, timeout, provider e saída inválida. O JSON nunca contém a chave,
 headers, URL assinada de saída ou traceback.
 
+### Fronteira multimodal e contrato
+
+`openia image` representa geração de imagem; não é o caminho para análise ou
+compreensão de imagens. Essa operação permanece separada das interfaces
+textuais e, se for necessária no futuro, deverá ter request/response próprios.
+O catálogo `/api/v1/images/models` declara as modalidades de entrada e saída e
+os parâmetros suportados; um modelo sem saída `image` é recusado antes do POST.
+
+O contrato de geração recebe prompt, modelo, referências, quantidade, formato,
+resolução, proporção, qualidade, fundo, compressão, seed, provider, timeout e
+retry. A resposta versionada expõe somente requestId, modelo, timestamps e
+metadados do arquivo absoluto. A imagem é materializada localmente a partir do
+base64 retornado pela API; URL de saída é apenas compatibilidade defensiva e
+nunca entra no JSON público. A chave de idempotência reutiliza um artefato
+válido existente, sem cache persistente de conteúdo ou retenção automática.
+
+O diretório de saída pertence ao host: sucesso mantém o arquivo final, enquanto
+falha/cancelamento remove somente arquivos novos e temporários. O limite padrão
+é 25 MiB por artefato, e custo por operação não é inventado no envelope; uso e
+saldo continuam sendo consultados separadamente pela conta OpenRouter.
+
 ## 🧬 Escolha de Modelo (empresa → modelo)
 
 Antes de iniciar qualquer interface, o openia deixa você escolher o modelo em
