@@ -271,6 +271,95 @@ def test_provider_inexistente_em_404_nao_e_confundido_com_modelo(tmp_path, monke
     assert exc.value.code == "provider_unsupported"
 
 
+def test_saldo_insuficiente_tem_codigo_seguro_e_nao_cria_artefato(
+    tmp_path, monkeypatch
+):
+    segredo = VALID_KEY
+
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url,
+            402,
+            "Payment Required",
+            {},
+            io.BytesIO(f"balance exhausted token={segredo}".encode()),
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageLimitError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), segredo)
+
+    assert exc.value.code == "account_limit"
+    assert not exc.value.retryable
+    assert segredo not in str(exc.value)
+    assert segredo not in json.dumps(image.error_payload(exc.value, "pedido-1"))
+    assert not list(tmp_path.iterdir())
+
+
+def test_rate_limit_tem_codigo_retryable_e_nao_cria_artefato(tmp_path, monkeypatch):
+    segredo = VALID_KEY
+
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url,
+            429,
+            "Too Many Requests",
+            {},
+            io.BytesIO(f"rate limit token={segredo}".encode()),
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageLimitError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), segredo)
+
+    assert exc.value.code == "rate_limit"
+    assert exc.value.retryable
+    assert segredo not in str(exc.value)
+    assert segredo not in json.dumps(image.error_payload(exc.value, "pedido-1"))
+    assert not list(tmp_path.iterdir())
+
+
+def test_url_de_saida_expirada_e_sanitizada_sem_artefato(tmp_path, monkeypatch):
+    url_expirada = (
+        "https://storage.example/imagem.png?X-Amz-Expires=1&"
+        "X-Amz-Signature=nao-exibir"
+    )
+    chamadas = []
+
+    def fake_urlopen(req, timeout=None):
+        chamadas.append(req)
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        if req.full_url == image.IMAGE_API_URL:
+            return _Response(
+                {"data": [{"url": url_expirada, "media_type": "image/png"}]}
+            )
+        raise urllib.error.HTTPError(
+            req.full_url,
+            403,
+            "Forbidden",
+            {},
+            io.BytesIO(b"Request has expired"),
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageNetworkError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), VALID_KEY)
+
+    assert exc.value.code == "network_error"
+    assert url_expirada not in str(exc.value)
+    assert url_expirada not in json.dumps(image.error_payload(exc.value, "pedido-1"))
+    assert "Authorization" not in str(chamadas[-1].headers)
+    assert not list(tmp_path.iterdir())
+
+
 def test_chave_ausente_e_rejeitada_sem_chamada(tmp_path, monkeypatch):
     monkeypatch.setattr(
         image.urllib.request, "urlopen", lambda *a, **k: pytest.fail("não chamar")

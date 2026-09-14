@@ -350,3 +350,41 @@ isso exigiria consumo/estado externo ou manipulação de uma resposta upstream.
 Esses cenários permanecem bloqueios explícitos para uma janela controlada em
 ambientes e credenciais apropriados. `python -m pytest -q` continua com 85
 testes passando, `ruff check .`, compilação e `git diff --check` sem erros.
+
+## [2026-09-14] Matriz real de limites e URL expirada
+
+Validação da task `Openia/Imagem — executar matriz real de limites e URL expirada`,
+executada entre 03:17 e 03:21 pelo agente Codex no repositório Openia. A conta
+disponível estava autenticada, com 52 modelos de imagem no catálogo, incluindo
+`openai/gpt-image-1-mini`; o saldo observado era US$ 4,106300 (total de créditos
+US$ 49,000000 e uso US$ 44,893700). Nenhum valor de chave foi impresso ou
+persistido.
+
+### Matriz real e controlada
+
+- HTTP 402 não foi provocado: a credencial disponível ainda tinha saldo e não
+  havia credencial/orçamento dedicado nem simulação do provider. Consumir mais
+  de US$ 4 para fabricar o estado comprometeria a chave de uso normal.
+- HTTP 429 não foi provocado: não havia limite controlado de conta/provider; um
+  flood ou alteração de estado externo seria inseguro e não deixaria uma
+  operação controlada.
+- URL de saída expirada não pôde ser reproduzida no upstream atual: a Image API
+  documentada retorna `b64_json` e `media_type`, não URL assinada de saída. A
+  referência oficial consultada foi
+  https://openrouter.ai/docs/guides/overview/multimodal/image-generation.
+- Os três contratos foram cobertos por doubles HTTP: 402 resulta em
+  `account_limit`, 429 em `rate_limit` retryable e URL expirada (403 no download)
+  em `network_error`. Todos mantêm o envelope sanitizado, não expõem token,
+  header ou URL assinada e não deixam artefato parcial.
+
+### Validação
+
+- Adicionados três testes de regressão em `tests/test_image.py` e atualizada a
+  contagem pública do README para 88 testes.
+- `python -m pytest -q`: **88 testes passando**.
+- `ruff check .`, `python -m compileall -q openia tests` e `git diff --check`:
+  sem erros.
+
+Os bloqueios 402, 429 e URL expirada ficam explicitamente dependentes de uma
+janela futura com credencial, orçamento e provider controlados; não há evidência
+real segura para fabricar esses estados com a conta disponível nesta sessão.
