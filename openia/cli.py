@@ -2,6 +2,7 @@
 
 Comandos:
     openia list                  lista as interfaces suportadas
+    openia image ...              gera imagem sem prompts e devolve JSON seguro
     openia list --json            contrato de interfaces para integrações
     openia models --json          contrato do catálogo de modelos
     openia key add [NOME]        adiciona uma chave nomeada do OpenRouter e a ativa
@@ -23,11 +24,12 @@ from __future__ import annotations
 import json
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 import typer
 
 from . import __version__
-from . import config, models, runner, ui, usage
+from . import config, image as image_service, models, runner, ui, usage
 from .interfaces import registry
 from .interfaces.base import AIInterface, Ecosystem
 
@@ -206,7 +208,9 @@ def _apply_or_explain_model(iface: AIInterface, model_id: str | None) -> str | N
         return model_id
     # Seleção dentro do app: instruir, não passar flag que pode não funcionar.
     ui.warn(f"{iface.name} escolhe o modelo na própria interface. Use lá dentro:")
-    typer.secho(f"      {iface.model_ref(model_id)}", fg=typer.colors.BRIGHT_WHITE, bold=True)
+    typer.secho(
+        f"      {iface.model_ref(model_id)}", fg=typer.colors.BRIGHT_WHITE, bold=True
+    )
     return None
 
 
@@ -218,11 +222,16 @@ def list_interfaces(
 ) -> None:
     """Lista todas as interfaces de IA suportadas."""
     if json_output:
-        typer.echo(json.dumps({
-            "interfaces": [
-                _interface_payload(iface) for iface in registry.all_interfaces()
-            ]
-        }, ensure_ascii=False))
+        typer.echo(
+            json.dumps(
+                {
+                    "interfaces": [
+                        _interface_payload(iface) for iface in registry.all_interfaces()
+                    ]
+                },
+                ensure_ascii=False,
+            )
+        )
         return
 
     typer.secho("Interfaces de IA suportadas:\n", bold=True)
@@ -251,15 +260,156 @@ def list_models(
         raise _err(str(exc)) from exc
 
     if json_output:
-        typer.echo(json.dumps({
-            "models": [_model_payload(model) for model in catalogo]
-        }, ensure_ascii=False))
+        typer.echo(
+            json.dumps(
+                {"models": [_model_payload(model) for model in catalogo]},
+                ensure_ascii=False,
+            )
+        )
         return
 
     for vendor in models.vendors(catalogo):
         typer.secho(f"\n{vendor}", bold=True)
         for model in models.models_of(catalogo, vendor):
             typer.echo(f"  {_price_label(model)}  {model.name}  ({model.id})")
+
+
+def _parse_image_int(value: str, nome: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise image_service.ImageValidationError(
+            f"{nome} deve ser um inteiro."
+        ) from None
+
+
+def _parse_image_float(value: str, nome: str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        raise image_service.ImageValidationError(f"{nome} deve ser numérico.") from None
+
+
+@app.command("image")
+def generate_image_command(
+    prompt_arg: str | None = typer.Argument(
+        None, help="Prompt da imagem; também pode ser informado com --prompt."
+    ),
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Modelo de geração (empresa/modelo)."
+    ),
+    prompt_option: str | None = typer.Option(
+        None,
+        "--prompt",
+        help="Prompt da imagem, para chamadas sem argumento posicional.",
+    ),
+    output_dir: str = typer.Option(
+        ".", "--output-dir", "--dir", help="Diretório do host onde gravar os artefatos."
+    ),
+    count_raw: str = typer.Option(
+        "1", "--count", "--n", help="Quantidade solicitada (1–10)."
+    ),
+    output_format: str | None = typer.Option(
+        None, "--format", help="Formato desejado: png, jpeg, webp ou svg."
+    ),
+    resolution: str | None = typer.Option(None, "--resolution"),
+    aspect_ratio: str | None = typer.Option(None, "--aspect-ratio"),
+    size: str | None = typer.Option(None, "--size"),
+    quality: str | None = typer.Option(None, "--quality"),
+    background: str | None = typer.Option(None, "--background"),
+    compression_raw: str | None = typer.Option(None, "--output-compression"),
+    seed_raw: str | None = typer.Option(None, "--seed"),
+    references: list[str] | None = typer.Option(
+        None,
+        "--reference",
+        help="URL HTTPS ou base64 de uma imagem de referência; pode repetir.",
+    ),
+    provider: str | None = typer.Option(
+        None, "--provider", help="Provider do OpenRouter a usar sem fallback."
+    ),
+    timeout_raw: str = typer.Option(
+        str(image_service.DEFAULT_TIMEOUT),
+        "--timeout",
+        help="Timeout por chamada, em segundos.",
+    ),
+    retries_raw: str = typer.Option(
+        str(image_service.DEFAULT_RETRIES),
+        "--retries",
+        "--retry",
+        help="Tentativas extras; usam a mesma chave de idempotência.",
+    ),
+    idempotency_key: str | None = typer.Option(
+        None,
+        "--idempotency-key",
+        "--request-id",
+        help="Chave estável para repetir a mesma operação com segurança.",
+    ),
+    cancel_file: str | None = typer.Option(
+        None, "--cancel-file", help="Arquivo cuja existência cancela a operação."
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Mantido para explicitar que a saída é JSON versionado."
+    ),
+) -> None:
+    """Gera imagem sem interação e emite somente o envelope JSON seguro."""
+    # A saída deste comando é sempre JSON; a flag deixa o contrato explícito
+    # para hosts que montam comandos com o mesmo padrão de outros subcomandos.
+    del json_output
+    request_id = idempotency_key
+    try:
+        if prompt_arg is not None and prompt_option is not None:
+            raise image_service.ImageValidationError(
+                "informe o prompt no argumento ou em --prompt, não nos dois."
+            )
+        prompt = prompt_option if prompt_option is not None else (prompt_arg or "")
+        compression = (
+            _parse_image_int(compression_raw, "output-compression")
+            if compression_raw is not None
+            else None
+        )
+        seed = _parse_image_int(seed_raw, "seed") if seed_raw is not None else None
+        cancel_checker = None
+        if cancel_file:
+            cancel_checker = Path(cancel_file).expanduser().exists
+        requisicao = image_service.ImageRequest(
+            model=model or "",
+            prompt=prompt,
+            output_dir=Path(output_dir),
+            count=_parse_image_int(count_raw, "count"),
+            output_format=output_format,
+            resolution=resolution,
+            aspect_ratio=aspect_ratio,
+            size=size,
+            quality=quality,
+            background=background,
+            output_compression=compression,
+            seed=seed,
+            references=tuple(references or ()),
+            provider=provider,
+            timeout=_parse_image_float(timeout_raw, "timeout"),
+            retries=_parse_image_int(retries_raw, "retries"),
+            idempotency_key=idempotency_key,
+        )
+        resultado = image_service.generate_image(
+            requisicao,
+            config.load_api_key(),
+            cancel_checker=cancel_checker,
+        )
+    except KeyboardInterrupt:
+        erro = image_service.ImageCancelledError("a operação foi cancelada.")
+        typer.echo(
+            json.dumps(
+                image_service.error_payload(erro, request_id), ensure_ascii=False
+            )
+        )
+        raise typer.Exit(code=erro.exit_code)
+    except image_service.ImageError as exc:
+        typer.echo(
+            json.dumps(image_service.error_payload(exc, request_id), ensure_ascii=False)
+        )
+        raise typer.Exit(code=exc.exit_code) from None
+
+    typer.echo(json.dumps(resultado.to_dict(), ensure_ascii=False))
 
 
 @key_app.command("add")
@@ -365,7 +515,9 @@ def statusline() -> None:
 
 
 @app.command("install")
-def install(interface: str = typer.Argument(..., help="Chave da interface, ex.: orchat")) -> None:
+def install(
+    interface: str = typer.Argument(..., help="Chave da interface, ex.: orchat"),
+) -> None:
     """Instala a interface escolhida direto no sistema."""
     iface = _resolve(interface)
     if runner.is_installed(iface):
@@ -385,23 +537,28 @@ def run(
     ctx: typer.Context,
     interface: str = typer.Argument(..., help="Chave da interface, ex.: orchat"),
     model: str = typer.Option(
-        None, "--model", "-m",
+        None,
+        "--model",
+        "-m",
         help="Id do modelo (empresa/modelo). Se omitido, abre o seletor empresa→modelo.",
     ),
     no_model: bool = typer.Option(
         False, "--no-model", help="Não escolher modelo; usa o padrão da ferramenta."
     ),
     subscription: bool = typer.Option(
-        False, "--subscription",
+        False,
+        "--subscription",
         help="Rodar na autenticação própria da ferramenta (ex.: assinatura do Claude Code).",
     ),
     provider: bool = typer.Option(
         False, "--provider", help="Rodar via OpenRouter (padrão para a maioria)."
     ),
     directory: str = typer.Option(
-        None, "--dir", "-C",
+        None,
+        "--dir",
+        "-C",
         help="Pasta onde rodar (raiz do projeto). Para agentes de código; "
-             "se omitido, o openia pergunta.",
+        "se omitido, o openia pergunta.",
     ),
 ) -> None:
     """Roda a interface (instala antes, se necessário). Args extras vão para a CLI."""
@@ -415,7 +572,9 @@ def run(
     use_provider = _decide_mode(iface, subscription=subscription, provider=provider)
 
     api_key = _ensure_key() if use_provider else None
-    model_id = _decide_model(iface, model=model, no_model=no_model) if use_provider else None
+    model_id = (
+        _decide_model(iface, model=model, no_model=no_model) if use_provider else None
+    )
     try:
         cwd = _resolve_workdir(iface, directory)
     except _Cancelado:
@@ -424,8 +583,12 @@ def run(
 
     try:
         code = runner.run(
-            iface, api_key, extra_args=list(ctx.args),
-            model_id=model_id, use_provider=use_provider, cwd=cwd,
+            iface,
+            api_key,
+            extra_args=list(ctx.args),
+            model_id=model_id,
+            use_provider=use_provider,
+            cwd=cwd,
         )
     except runner.ToolingError as exc:
         raise _err(str(exc)) from exc
@@ -502,7 +665,9 @@ def _choose_workdir(iface: AIInterface) -> str:
 
     atual = Path.cwd()
     ui.section("Em qual pasta o agente vai trabalhar?")
-    ui.info(f"raiz do projeto = onde {iface.name} vai ler e editar arquivos.", emoji="📁")
+    ui.info(
+        f"raiz do projeto = onde {iface.name} vai ler e editar arquivos.", emoji="📁"
+    )
     if iface.key == "claudecode":
         ui.warn(
             "o histórico do Claude Code é ligado à pasta do projeto. Para ver no "
@@ -562,25 +727,43 @@ def _interactive_menu() -> None:
             instalada = runner.is_installed(iface)
             status = (
                 typer.style("instalada", fg=typer.colors.GREEN)
-                if instalada else typer.style("não instalada", fg=typer.colors.BRIGHT_BLACK)
+                if instalada
+                else typer.style("não instalada", fg=typer.colors.BRIGHT_BLACK)
             )
-            ui.option(idx, f"{iface.name} · {status}", emoji=iface.emoji,
-                      dim=iface.description)
+            ui.option(
+                idx,
+                f"{iface.name} · {status}",
+                emoji=iface.emoji,
+                dim=iface.description,
+            )
 
         ui.section("Instalar e configurar")
         estado_chave = (
             typer.style(f"ativa: {ativa}", fg=typer.colors.GREEN)
-            if ativa else typer.style("nenhuma chave", fg=typer.colors.YELLOW)
+            if ativa
+            else typer.style("nenhuma chave", fg=typer.colors.YELLOW)
         )
         n = len(interfaces)
-        ui.option(n + 1, "Instalar / Setup de uma interface", emoji="📦",
-                  dim="instala uma CLI sem já iniciá-la")
-        ui.option(n + 2, f"Chaves do OpenRouter · {estado_chave}", emoji="🔑",
-                  dim="adicionar, ativar, renomear ou remover")
+        ui.option(
+            n + 1,
+            "Instalar / Setup de uma interface",
+            emoji="📦",
+            dim="instala uma CLI sem já iniciá-la",
+        )
+        ui.option(
+            n + 2,
+            f"Chaves do OpenRouter · {estado_chave}",
+            emoji="🔑",
+            dim="adicionar, ativar, renomear ou remover",
+        )
 
         ui.section("Status e uso")
-        ui.option(n + 3, "Status do openia", emoji="🩺",
-                  dim="o que está instalado, chave e dependências")
+        ui.option(
+            n + 3,
+            "Status do openia",
+            emoji="🩺",
+            dim="o que está instalado, chave e dependências",
+        )
         ui.option(n + 4, "Ver meu uso/saldo no OpenRouter", emoji="📊")
         ui.option(n + 5, "Statusline de custo no Claude Code", emoji="🧾")
         ui.back_option(0, "sair")
@@ -658,7 +841,9 @@ def _menu_status() -> None:
     ativa = config.active_key_name()
     total_chaves = len(config.list_keys())
     if ativa:
-        ui.success(f"chave do OpenRouter: ativa '{ativa}' ({total_chaves} cadastrada(s))")
+        ui.success(
+            f"chave do OpenRouter: ativa '{ativa}' ({total_chaves} cadastrada(s))"
+        )
     else:
         ui.warn("chave do OpenRouter: nenhuma cadastrada")
 
@@ -668,7 +853,8 @@ def _menu_status() -> None:
         instalada = runner.is_installed(iface)
         marca = (
             typer.style("✓ instalada", fg=typer.colors.GREEN)
-            if instalada else typer.style("· não instalada", fg=typer.colors.BRIGHT_BLACK)
+            if instalada
+            else typer.style("· não instalada", fg=typer.colors.BRIGHT_BLACK)
         )
         typer.echo(f"    {iface.emoji}  {iface.name}: {marca}")
 
@@ -682,12 +868,18 @@ def _menu_keys() -> None:
         ui.section("Chaves do OpenRouter")
         for nk in chaves:
             marca = "● " if nk.name == ativa else "  "
-            tag = typer.style("ativa", fg=typer.colors.GREEN) if nk.name == ativa else ""
-            ui.option(0, f"{marca}{nk.name}  ({_mask(nk.key)})  {tag}".rstrip(), emoji="🔑")
+            tag = (
+                typer.style("ativa", fg=typer.colors.GREEN) if nk.name == ativa else ""
+            )
+            ui.option(
+                0, f"{marca}{nk.name}  ({_mask(nk.key)})  {tag}".rstrip(), emoji="🔑"
+            )
         if not chaves:
             ui.info("nenhuma chave cadastrada ainda.", emoji="")
-            ui.info("escolha '➕ Adicionar uma chave' — eu explico como criar uma.",
-                    emoji="👉")
+            ui.info(
+                "escolha '➕ Adicionar uma chave' — eu explico como criar uma.",
+                emoji="👉",
+            )
 
         opcoes = ["➕ Adicionar uma chave"]
         if chaves:
@@ -704,16 +896,27 @@ def _menu_keys() -> None:
         if acao.startswith("➕"):
             _key_add_flow()
         elif acao.startswith("🌐"):
-            _key_pick_and(lambda nome: _testar_chave(
-                next(nk.key for nk in config.list_keys() if nk.name == nome)))
+            _key_pick_and(
+                lambda nome: _testar_chave(
+                    next(nk.key for nk in config.list_keys() if nk.name == nome)
+                )
+            )
         elif acao.startswith("✅"):
-            _key_pick_and(lambda nome: (config.set_active(nome),
-                                        ui.success(f"'{nome}' agora é a chave ativa.")))
+            _key_pick_and(
+                lambda nome: (
+                    config.set_active(nome),
+                    ui.success(f"'{nome}' agora é a chave ativa."),
+                )
+            )
         elif acao.startswith("✏️"):
             _key_rename_flow()
         elif acao.startswith("🗑️"):
-            _key_pick_and(lambda nome: (config.remove_key(nome),
-                                        ui.success(f"chave '{nome}' removida.")))
+            _key_pick_and(
+                lambda nome: (
+                    config.remove_key(nome),
+                    ui.success(f"chave '{nome}' removida."),
+                )
+            )
 
 
 def _explain_how_to_get_key() -> None:
@@ -746,10 +949,13 @@ def _key_add_flow() -> None:
     """Pede nome + chave e salva. No primeiro cadastro, mostra como obter a chave."""
     if not config.list_keys():
         _explain_how_to_get_key()
-    nome = typer.prompt(typer.style("✏️  Nome para esta chave (ex.: pessoal)",
-                                     fg=typer.colors.CYAN))
-    chave = typer.prompt(typer.style("🔑 Cole a chave do OpenRouter", fg=typer.colors.CYAN),
-                         hide_input=True)
+    nome = typer.prompt(
+        typer.style("✏️  Nome para esta chave (ex.: pessoal)", fg=typer.colors.CYAN)
+    )
+    chave = typer.prompt(
+        typer.style("🔑 Cole a chave do OpenRouter", fg=typer.colors.CYAN),
+        hide_input=True,
+    )
     try:
         warning = config.add_key(nome, chave)
     except ValueError as exc:
@@ -922,7 +1128,9 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
         _relaunch_cmd(iface, use_provider, model_id, cwd)
     ):
         ui.success(f"{iface.name} está abrindo em um novo terminal.")
-        ui.info("o menu continua livre aqui — pode iniciar outra coisa ou sair.", emoji="↩️")
+        ui.info(
+            "o menu continua livre aqui — pode iniciar outra coisa ou sair.", emoji="↩️"
+        )
         return
     if iface.is_code_agent:
         ui.warn(
@@ -931,7 +1139,9 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
         )
 
     try:
-        runner.run(iface, api_key, model_id=model_id, use_provider=use_provider, cwd=cwd)
+        runner.run(
+            iface, api_key, model_id=model_id, use_provider=use_provider, cwd=cwd
+        )
     except runner.ToolingError as exc:
         ui.error(str(exc))
         return
@@ -948,8 +1158,14 @@ def _relaunch_cmd(
     entra no comando: a chave ativa é carregada do ``keys.json`` pelo processo
     novo (visível em listagem de processos, o comando não pode vazar a chave).
     """
-    cmd = [sys.executable, "-m", "openia", "run", iface.key,
-           "--provider" if use_provider else "--subscription"]
+    cmd = [
+        sys.executable,
+        "-m",
+        "openia",
+        "run",
+        iface.key,
+        "--provider" if use_provider else "--subscription",
+    ]
     if use_provider:
         cmd += ["-m", model_id] if model_id else ["--no-model"]
     if cwd:

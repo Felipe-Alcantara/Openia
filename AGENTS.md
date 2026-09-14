@@ -42,7 +42,7 @@ System Design. Os princípios obrigatórios:
 Leia `IA.md` **antes de qualquer alteração** — ele contém:
 - Decisões técnicas e arquiteturais (com datas e motivos)
 - Bugs corrigidos e riscos conhecidos
-- Estado atual dos testes (62 passando)
+- Estado atual dos testes (84 passando)
 - Linha do tempo completa do projeto
 
 Ao concluir uma mudança, **atualize o `IA.md`** com uma nova entrada datada
@@ -72,6 +72,7 @@ entradas antigas — o `IA.md` é linha do tempo, não resumo.
 openia/
 ├── interfaces/          # Contrato (base.py) + Registro (registry.py)
 ├── cli.py               # Comandos Typer + menu interativo
+├── image.py             # Geração segura de imagens e artefatos JSON
 ├── config.py            # Chaves do OpenRouter + ambiente de execução
 ├── runner.py            # Instalar / detectar / executar (isola pip, npm, SO)
 ├── models.py            # Catálogo de modelos do OpenRouter (cache 24h)

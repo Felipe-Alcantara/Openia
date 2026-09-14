@@ -241,3 +241,40 @@ de só devolver o stderr cru do pip.
 Não testei se o mesmo comportamento é necessário em Fedora/openSUSE (que também
 adotaram PEP 668) nem o efeito em macOS/Windows, onde esse erro não deveria
 ocorrer.
+
+## [2026-09-14] Comando não interativo de geração de imagens com saída segura
+
+Implementada a capacidade multimodal solicitada pela task do Openia: o novo
+módulo `openia/image.py` separa validação, descoberta de capability, chamada da
+Image API do OpenRouter, materialização e persistência dos artefatos. O comando
+`openia image` não abre o menu e emite somente um envelope JSON versionado com
+modelo, `requestId`, timestamps e metadados de arquivos absolutos.
+
+A entrada aceita prompt, modelo, referências HTTP(S) ou base64 de imagens,
+múltiplos outputs, opções de formato/resolução/qualidade e provider escolhido.
+As saídas ficam limitadas a PNG, JPEG, WebP e SVG seguro, com limite padrão de
+25 MiB por artefato, validação por assinatura, arquivo temporário com `fsync` e
+`os.replace` atômico. O contrato também cobre códigos seguros para chave,
+modelo, limite, rede, timeout, provider e MIME, retry com a mesma chave de
+idempotência, cancelamento por `Ctrl+C`/arquivo/evento e limpeza de arquivos
+novos em falhas.
+
+### Validação
+
+- `python -m pytest -q`: **84 testes passando**.
+- `ruff check .`: sem erros.
+- `python -m openia image --help`: comando e opções expostos.
+- Execução inválida de `--count` confirmou envelope JSON sem traceback e código
+  de saída 2.
+- Testes isolados cobrem sucesso base64/URL, múltiplos outputs, capability de
+  entrada/saída, provider sem suporte, atomicidade, limite, MIME, traversal,
+  cancelamento, timeout/retry, idempotência e não exposição de chave.
+
+### Limite conhecido
+
+Não foi feita geração real contra o OpenRouter nesta sessão para não consumir
+créditos nem registrar uma chave real; a integração foi validada com doubles
+HTTP e a referência oficial da Image API:
+https://openrouter.ai/docs/guides/overview/multimodal/image-generation. Este
+limite deve ser exercitado posteriormente com uma credencial de teste e um
+orçamento controlado.

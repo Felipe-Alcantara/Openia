@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Typer](https://img.shields.io/badge/CLI-Typer-009688?style=for-the-badge&logo=typer&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/OpenRouter-API-6E56CF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-62%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-84%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — pelo menu do Openia ou pela interface hospedeira.**
@@ -27,6 +27,8 @@ modelos, cuja lista vem da API do OpenRouter ao vivo.
 - [📋 Sobre o Projeto](#-sobre-o-projeto)
 - [📁 Estrutura do Projeto](#-estrutura-do-projeto)
 - [🚀 Como Usar](#-como-usar)
+
+- [🖼️ Geração não interativa de imagens](#-geração-não-interativa-de-imagens)
 - [🧩 Integração com o Felixo AI Core](#-integração-com-o-felixo-ai-core)
 - [🧬 Escolha de Modelo (empresa → modelo)](#-escolha-de-modelo-empresa--modelo)
 - [🧩 Interfaces Suportadas](#-interfaces-suportadas)
@@ -69,13 +71,14 @@ Openia/
 │   │   ├── base.py             # Contrato AIInterface (descrição de uma CLI)
 │   │   └── registry.py         # Registro das CLIs suportadas (único ponto a editar)
 │   ├── cli.py                  # Comandos Typer (list/key/install/run) e o menu
+│   ├── image.py                # Geração segura de imagens e artefatos JSON
 │   ├── config.py               # Chaves do OpenRouter + montagem do ambiente
 │   ├── runner.py               # Instalar / detectar / executar (isola pip, npm, SO)
 │   ├── models.py               # Catálogo de modelos do OpenRouter (com cache 24h)
 │   ├── ui.py                   # Apresentação do menu (molduras, cores, prompts)
 │   └── usage.py                # Uso/saldo no OpenRouter e validação de chave
 │
-├── 📁 tests/                   # Testes (pytest) — 62 passando
+├── 📁 tests/                   # Testes (pytest) — 84 passando
 ├── 📁 scripts/                 # Instaladores do comando `openia` por shell
 ├── start_app.py                # Porta de entrada única: menu interativo
 ├── IA.md                       # Contexto operacional (decisões, bugs, testes)
@@ -181,6 +184,17 @@ com uma chamada explícita, sem prompt de configuração:
 openia run <interface> --provider --model <empresa/modelo> --dir <projeto>
 ```
 
+Para geração de imagem, o host chama o comando não interativo e recebe apenas
+metadados seguros do arquivo final:
+
+```text
+openia image --prompt <texto> --model <empresa/modelo> \
+  --output-dir <diretório-do-host> --json
+```
+
+O comando valida a capability de imagem do modelo, grava a resposta
+atomicamente e não coloca chave, headers ou URL assinada no JSON devolvido.
+
 Quando o modelo fica em branco, o host usa `--no-model`. O registro em
 [`openia/interfaces/registry.py`](openia/interfaces/registry.py) continua sendo
 a fonte única de como cada CLI recebe o modelo: por flag, variável de ambiente
@@ -200,6 +214,53 @@ openia --version
 ```
 
 ---
+
+## 🖼️ Geração não interativa de imagens
+
+O subcomando `image` é a porta para hosts que precisam gerar uma imagem sem
+abrir o menu e sem interpretar texto humano. Ele sempre escreve um único JSON
+versionado em stdout; o binário fica no diretório informado:
+
+```bash
+openia image --prompt "um gato astronauta" \
+  --model openai/gpt-image-1 \
+  --output-dir /caminho/do/host \
+  --format png --json
+```
+
+O modelo é conferido antes da geração pelo catálogo de modelos de imagem do
+OpenRouter. O comando recusa modelos sem saída de imagem, parâmetros que o
+modelo não declara e referências que não sejam URL HTTP(S) ou base64 de PNG,
+JPEG ou WebP. Use `--reference` várias vezes para image-to-image e `--count`
+para solicitar mais de um artefato.
+
+Exemplo de resposta de sucesso:
+
+```json
+{
+  "version": 1,
+  "ok": true,
+  "requestId": "pedido-42",
+  "model": "openai/gpt-image-1",
+  "outputs": [
+    {"path": "/caminho/do/host/openia-image-pedido-42-1.png", "mime": "image/png", "bytes": 123456}
+  ],
+  "createdAt": "2026-09-14T01:00:00.000Z",
+  "completedAt": "2026-09-14T01:01:00.000Z"
+}
+```
+
+PNG, JPEG, WebP e SVG são os únicos MIME types aceitos na saída. Cada artefato
+tem limite de 25 MiB, é validado pelo conteúdo e gravado em arquivo temporário
+com `fsync` antes de ser movido atomicamente para o nome final. Uma falha ou
+cancelamento remove os artefatos novos da operação. `Ctrl+C` e `--cancel-file`
+cancelam sem deixar temporários; `--idempotency-key`/`--request-id` permite
+repetir a mesma operação usando a mesma chave de idempotência e o mesmo nome
+de saída.
+
+Os erros também são JSON seguro, com códigos distintos para chave, modelo,
+limite, rede, timeout, provider e saída inválida. O JSON nunca contém a chave,
+headers, URL assinada de saída ou traceback.
 
 ## 🧬 Escolha de Modelo (empresa → modelo)
 
@@ -344,7 +405,7 @@ montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
 consentimento de script, a navegação do menu (voltar/opção inválida) e o
 relançamento de agentes em terminal novo e detecção externa por `--version`.
-**62 testes passando.**
+**84 testes passando.**
 
 ---
 
