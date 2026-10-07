@@ -434,3 +434,52 @@ https://openrouter.ai/docs/guides/overview/multimodal/image-understanding.
 Validação atual: `python -m pytest -q` → **88 testes passando**, `ruff check .`,
 `python -m compileall -q openia tests` e `git diff --check` sem erros. Não houve
 segredo, imagem privada, header ou URL assinada registrada.
+
+## [2026-10-07] Smoke do pacote instalado no Linux e script reutilizável
+
+Task `Openia/Imagem — validar smoke empacotado em macOS e Linux`, feita por
+Claude - Tasks do AI Core (Claude Code, Opus 5.5) entre 09:00 e 09:20. Decisão
+do Felipe: validar só o Linux agora (não há Mac nesta máquina; o macOS virou task
+própria), com teto de gasto de US$ 2.
+
+### O que foi feito
+
+`scripts/smoke_imagem_empacotada.py` roda o `openia` instalado (o do PATH, nunca
+o checkout) numa geração real e num timeout forçado. Ele confere JSON, MIME,
+bytes no JSON e no disco, caminho absoluto, timestamps, assinatura, ausência de
+temporários e vazamentos (chave, header, URL, base64 longo, pasta pessoal). O
+relatório é seguro: só códigos, números e booleanos. As checagens têm 12 testes
+sem rede em `tests/test_smoke_imagem_empacotada.py`.
+
+### Medido no Linux
+
+Contêineres descartáveis `python:3.10-slim` e `python:3.12-slim` (Debian 13), com
+o pacote publicado instalado de
+`https://github.com/Felipe-Alcantara/Openia/archive/9bb9099.tar.gz`. O import veio
+de `site-packages`.
+
+| Python | Geração | Timeout forçado | Vazamentos |
+| --- | --- | --- | --- |
+| 3.10.x | exit 0 em 11,095 s, um PNG de 1.078.117 bytes, todas as checagens | exit 124, `timeout`, 1,705 s, pasta vazia | nenhum |
+| 3.12.15 | exit 0 em 8,887 s, um PNG de 702.146 bytes, todas as checagens | exit 124, `timeout`, 1,596 s, pasta vazia | nenhum |
+
+Custo medido em `/api/v1/credits`: US$ 0,004410 para as duas gerações e os dois
+timeouts.
+
+### Cenários reais que apareceram no caminho
+
+- **Saldo insuficiente (HTTP 402).** Com US$ 0,77 de saldo na conta da chave
+  padrão, o OpenRouter recusou imagem ("Insufficient credits"), até no
+  `black-forest-labs/flux.2-klein-4b`, mas aceitou texto. O `openia` respondeu
+  exit 5, `account_limit`, sem artefato e sem vazamento: é a evidência real do 402
+  que faltava desde 14/09.
+- **Limite da chave esgotado (HTTP 403 "Key limit exceeded").** O `openia`
+  classifica como `authentication_error` ("a chave do OpenRouter foi
+  rejeitada"), em `openia/image.py:659`. A mensagem engana: a chave é válida, só
+  o limite acabou. Ficou como task.
+
+### Validação
+
+`python -m pytest -q` → **100 testes passando**; `ruff check .` sem erros. Nenhuma
+chave, header, URL assinada ou imagem foi registrada. As imagens ficaram só
+dentro dos contêineres, apagados no fim.

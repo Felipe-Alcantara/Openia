@@ -5,7 +5,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Typer](https://img.shields.io/badge/CLI-Typer-009688?style=for-the-badge&logo=typer&logoColor=white)
 ![OpenRouter](https://img.shields.io/badge/OpenRouter-API-6E56CF?style=for-the-badge)
-![Tests](https://img.shields.io/badge/Tests-88%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-100%20passing-2ea44f?style=for-the-badge&logo=pytest&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 **Escolha, instale e abra uma CLI de IA de terminal já configurada com sua chave do OpenRouter — pelo menu do Openia ou pela interface hospedeira.**
@@ -78,7 +78,7 @@ Openia/
 │   ├── ui.py                   # Apresentação do menu (molduras, cores, prompts)
 │   └── usage.py                # Uso/saldo no OpenRouter e validação de chave
 │
-├── 📁 tests/                   # Testes (pytest) — 88 passando
+├── 📁 tests/                   # Testes (pytest) — 100 passando
 ├── 📁 scripts/                 # Instaladores do comando `openia` por shell
 ├── start_app.py                # Porta de entrada única: menu interativo
 ├── IA.md                       # Contexto operacional (decisões, bugs, testes)
@@ -283,6 +283,26 @@ falha/cancelamento remove somente arquivos novos e temporários. O limite padrã
 é 25 MiB por artefato, e custo por operação não é inventado no envelope; uso e
 saldo continuam sendo consultados separadamente pela conta OpenRouter.
 
+### Smoke do pacote instalado
+
+`scripts/smoke_imagem_empacotada.py` confere o contrato acima no `openia`
+**instalado** (o do PATH, nunca este checkout), em qualquer sistema. Ele faz uma
+geração real e um timeout forçado (`--timeout 1 --retries 0`) e verifica JSON
+versionado, MIME, bytes iguais no JSON e no disco, caminho absoluto, timestamps,
+assinatura do arquivo e ausência de temporários. Também varre stdout e stderr
+atrás da chave, de headers, de URLs, de base64 longo e da pasta pessoal. O
+relatório só tem códigos, números e booleanos:
+
+```bash
+pip install https://github.com/Felipe-Alcantara/Openia/archive/main.tar.gz
+OPENROUTER_API_KEY=... python scripts/smoke_imagem_empacotada.py \
+  --model openai/gpt-image-1-mini --work-dir /tmp/smoke-openia
+```
+
+A geração real gasta crédito: com saldo baixo, o OpenRouter recusa imagem com
+HTTP 402 (`account_limit`) antes de gerar. No Linux, um contêiner descartável
+(`docker run --rm -e OPENROUTER_API_KEY python:3.12-slim …`) é o ambiente limpo.
+
 ## 🧬 Escolha de Modelo (empresa → modelo)
 
 Antes de iniciar qualquer interface, o openia deixa você escolher o modelo em
@@ -426,7 +446,7 @@ montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
 consentimento de script, a navegação do menu (voltar/opção inválida) e o
 relançamento de agentes em terminal novo e detecção externa por `--version`.
-**88 testes passando.**
+**100 testes passando.**
 
 ---
 
