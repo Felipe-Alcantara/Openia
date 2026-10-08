@@ -530,3 +530,14 @@ responde 401 em décimos de segundo, mas o Claude Code em `-p` silencia o 401.
 
 `python -m pytest -q` → **121 testes passando** (21 novos, todos vermelhos antes
 da mudança); `ruff check .` sem erros.
+
+### Versão 0.2.0 para o pip reinstalar
+
+O Felixo instala e atualiza o Openia com `pip install --user --upgrade
+<zip de um commit>`. Medido num venv limpo: com `d248538` instalado, o
+`--upgrade` para o zip de `8c8dd3f` montou `openia==0.1.0`, achou a mesma
+versão e **não reinstalou** — o código antigo continuou valendo, sem erro.
+A versão sobe para **0.2.0** (`pyproject.toml`, `openia/__init__.py` e o
+teste do `--version`), para o botão de atualizar do Felixo entregar esta
+correção. Toda mudança que o Felixo precise receber por atualização precisa
+subir a versão de novo.
