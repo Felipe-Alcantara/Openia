@@ -283,3 +283,138 @@ def test_relaunch_cmd_assinatura_sem_modelo():
         "-C",
         "/tmp/proj",
     ]
+
+
+# --------------------------------------------------------------------------
+# `run` testa a chave antes de lançar (Claude Code em -p ficava calado com 401)
+# --------------------------------------------------------------------------
+def _preparar_run(monkeypatch, check, instalada=True):
+    chamadas = {"run": 0, "install": 0, "check": 0}
+
+    def fake_check(chave, timeout=None):  # noqa: ARG001
+        chamadas["check"] += 1
+        return check
+
+    def fake_install(iface):  # noqa: ARG001
+        chamadas["install"] += 1
+
+    def fake_run(iface, api_key, **kwargs):  # noqa: ARG001
+        chamadas["run"] += 1
+        return 0
+
+    monkeypatch.setattr(cli.config, "load_api_key", lambda: VALID_KEY)
+    monkeypatch.setattr(cli.usage, "check_api_key", fake_check)
+    monkeypatch.setattr(cli.runner, "is_installed", lambda iface: instalada)
+    monkeypatch.setattr(cli, "_install_with_consent", fake_install)
+    monkeypatch.setattr(cli, "_show_setup_hint", lambda iface: None)
+    monkeypatch.setattr(cli.runner, "run", fake_run)
+    return chamadas
+
+
+def _invocar_run(pasta, *flags):
+    return CliRunner().invoke(
+        cli.app, ["run", "claudecode", *flags, "--no-model", "--dir", str(pasta)]
+    )
+
+
+RECUSA = (
+    "a chave foi rejeitada pelo OpenRouter (inválida, revogada ou sem "
+    "permissão). Resposta do OpenRouter: User not found."
+)
+
+
+def test_run_chave_recusada_sai_com_codigo_3_sem_lancar(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch, cli.usage.KeyCheck(cli.usage.CHAVE_RECUSADA, RECUSA)
+    )
+
+    result = _invocar_run(tmp_path, "--provider")
+
+    assert result.exit_code == cli.CODIGO_CHAVE_RECUSADA == 3
+    assert chamadas["run"] == 0
+    assert "rejeitada pelo OpenRouter" in result.output
+    assert "User not found" in result.output
+    assert "openia key add" in result.output
+    # Nenhum trecho da chave sai, nem o começo que o _mask mostraria.
+    assert VALID_KEY[:12] not in result.output
+    assert VALID_KEY[-8:] not in result.output
+
+
+def test_run_chave_recusada_nao_instala_antes(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch,
+        cli.usage.KeyCheck(cli.usage.CHAVE_RECUSADA, "recusada"),
+        instalada=False,
+    )
+
+    result = _invocar_run(tmp_path, "--provider")
+
+    assert result.exit_code == 3
+    assert chamadas["install"] == 0
+
+
+def test_run_openrouter_fora_do_ar_avisa_e_lanca(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch,
+        cli.usage.KeyCheck(cli.usage.OPENROUTER_INDISPONIVEL, "sem rede"),
+    )
+
+    result = _invocar_run(tmp_path, "--provider")
+
+    assert result.exit_code == 0, result.output
+    assert chamadas["run"] == 1
+    assert "a chave não pôde ser testada agora" in result.output
+    assert "recusada" not in result.output
+
+
+def test_run_saldo_zerado_avisa_e_lanca(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch,
+        cli.usage.KeyCheck(cli.usage.CHAVE_VALIDA, "ok", saldo_zerado=True),
+    )
+
+    result = _invocar_run(tmp_path, "--provider")
+
+    assert result.exit_code == 0, result.output
+    assert chamadas["run"] == 1
+    assert "saldo" in result.output
+
+
+def test_run_chave_valida_lanca_sem_aviso(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch, cli.usage.KeyCheck(cli.usage.CHAVE_VALIDA, "ok")
+    )
+
+    result = _invocar_run(tmp_path, "--provider")
+
+    assert result.exit_code == 0, result.output
+    assert chamadas == {"run": 1, "install": 0, "check": 1}
+    assert "saldo" not in result.output
+
+
+def test_run_assinatura_nao_testa_chave(tmp_path, monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch, cli.usage.KeyCheck(cli.usage.CHAVE_RECUSADA, "recusada")
+    )
+
+    result = _invocar_run(tmp_path, "--subscription")
+
+    assert result.exit_code == 0, result.output
+    assert chamadas["check"] == 0
+    assert chamadas["run"] == 1
+
+
+def test_menu_chave_recusada_volta_ao_menu_sem_lancar(monkeypatch):
+    chamadas = _preparar_run(
+        monkeypatch, cli.usage.KeyCheck(cli.usage.CHAVE_RECUSADA, "recusada")
+    )
+    monkeypatch.setattr(cli, "_decide_mode", lambda *a, **k: True)
+    # Sem pergunta "tentar mesmo assim?": 401/403 é definitivo.
+    monkeypatch.setattr(
+        cli.typer, "confirm", lambda *a, **k: pytest.fail("não deveria perguntar")
+    )
+
+    with pytest.raises(cli._Cancelado):
+        cli._run_interface_flow_inner(registry.get("claudecode"))
+
+    assert chamadas["run"] == 0

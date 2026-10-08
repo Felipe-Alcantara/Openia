@@ -81,6 +81,46 @@ def _ensure_key() -> str:
     return api_key
 
 
+# Chave recusada pelo OpenRouter no `run`: o mesmo código do `openia image`
+# (ImageAuthenticationError), que o Felixo já traduz como erro de autenticação.
+CODIGO_CHAVE_RECUSADA = image_service.ImageAuthenticationError.exit_code
+
+# O teste da chave não pode segurar o lançamento: o OpenRouter responde em
+# décimos de segundo; passado isso, avisa e segue.
+TEMPO_TESTE_CHAVE_S = 8.0
+
+
+def _conferir_chave(api_key: str) -> bool:
+    """Testa a chave no OpenRouter antes de entregá-la à ferramenta.
+
+    Devolve False só quando o OpenRouter recusa a chave (401/403) — aí a
+    ferramenta ficaria parada sem mensagem (o Claude Code em ``-p`` silencia o
+    401). Rede fora ou OpenRouter instável não dizem nada sobre a chave: avisa e
+    deixa seguir. Saldo zerado também só avisa: modelos ``:free`` funcionam.
+    Nenhuma mensagem leva a chave.
+    """
+    check = usage.check_api_key(api_key, timeout=TEMPO_TESTE_CHAVE_S)
+    if check.status == usage.CHAVE_RECUSADA:
+        typer.secho(
+            f"erro: {check.reason} Troque a chave com 'openia key add' ou "
+            "escolha outra com 'openia key use'.",
+            fg=typer.colors.RED,
+            err=True,
+        )
+        return False
+    if check.status == usage.OPENROUTER_INDISPONIVEL:
+        ui.warn(
+            f"a chave não pôde ser testada agora — {check.reason} "
+            "Seguindo mesmo assim; se a ferramenta falhar, confira a conexão."
+        )
+    elif check.saldo_zerado:
+        ui.warn(
+            "a chave autenticou, mas o saldo do OpenRouter acabou: modelos pagos "
+            "vão falhar (os gratuitos, ':free', continuam funcionando)."
+        )
+    return True
+
+
 def _install_with_consent(iface: AIInterface) -> None:
     """Instala a interface, pedindo confirmação extra se for via script remoto.
 
@@ -564,14 +604,18 @@ def run(
     """Roda a interface (instala antes, se necessário). Args extras vão para a CLI."""
     iface = _resolve(interface)
 
+    use_provider = _decide_mode(iface, subscription=subscription, provider=provider)
+
+    api_key = _ensure_key() if use_provider else None
+    # Antes da instalação: com a chave recusada não adianta instalar nada.
+    if api_key and not _conferir_chave(api_key):
+        raise typer.Exit(code=CODIGO_CHAVE_RECUSADA)
+
     if not runner.is_installed(iface):
         typer.echo(f"{iface.name} não instalada; instalando antes de rodar …")
         _install_with_consent(iface)
         _show_setup_hint(iface)
 
-    use_provider = _decide_mode(iface, subscription=subscription, provider=provider)
-
-    api_key = _ensure_key() if use_provider else None
     model_id = (
         _decide_model(iface, model=model, no_model=no_model) if use_provider else None
     )
@@ -1103,13 +1147,10 @@ def _run_interface_flow_inner(iface: AIInterface) -> None:
                 raise _Cancelado
         api_key = config.load_api_key()
         # Confere que a chave realmente autentica antes de entregar à CLI: uma
-        # chave "ativa" porém revogada/sem saldo só falharia lá dentro, com erro
-        # críptico. Em falha de rede deixamos seguir (pode ser falso-negativo).
-        check = usage.check_api_key(api_key)
-        if not check.ok:
-            ui.warn(f"a chave ativa não passou no teste: {check.reason}")
-            if not typer.confirm("  tentar mesmo assim?", default=False):
-                raise _Cancelado
+        # chave revogada só falharia lá dentro, calada ou com erro críptico.
+        # 401/403 é definitivo (volta ao menu); falha de rede só avisa e segue.
+        if not _conferir_chave(api_key):
+            raise _Cancelado
         if typer.confirm("  escolher o modelo agora (empresa → modelo)?", default=True):
             model_id = _apply_or_explain_model(iface, _choose_model(iface))
     else:

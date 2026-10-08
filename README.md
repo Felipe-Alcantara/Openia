@@ -184,6 +184,20 @@ com uma chamada explícita, sem prompt de configuração:
 openia run <interface> --provider --model <empresa/modelo> --dir <projeto>
 ```
 
+Antes de instalar ou lançar a ferramenta, o `run --provider` testa a chave em
+`/api/v1/credits` (décimos de segundo; a chave vai só no cabeçalho, em
+memória):
+
+| Resposta do OpenRouter | O que o `run` faz |
+| --- | --- |
+| 401/403 (chave inválida, revogada, sem permissão ou com o limite esgotado) | sai com **código 3** e a resposta curta do OpenRouter, sem lançar nada |
+| rede fora, timeout (8 s), 429/5xx ou resposta estranha | avisa que não testou e lança mesmo assim |
+| chave válida com saldo zerado | avisa (modelos pagos vão falhar; os `:free` funcionam) e lança |
+
+Sem o teste, o Claude Code em `-p` ficava parado e calado com uma chave recusada.
+O código 3 é o mesmo de autenticação do `openia image`; nenhuma mensagem leva a
+chave.
+
 Para geração de imagem, o host chama o comando não interativo e recebe apenas
 metadados seguros do arquivo final:
 
@@ -446,7 +460,7 @@ montagem de ambiente provider/assinatura, catálogo de modelos e ordenação por
 preço, registro de interfaces, comandos de instalação por SO e o gate de
 consentimento de script, a navegação do menu (voltar/opção inválida) e o
 relançamento de agentes em terminal novo e detecção externa por `--version`.
-**100 testes passando.**
+**121 testes passando.**
 
 ---
 
