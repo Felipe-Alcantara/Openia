@@ -483,3 +483,50 @@ timeouts.
 `python -m pytest -q` → **100 testes passando**; `ruff check .` sem erros. Nenhuma
 chave, header, URL assinada ou imagem foi registrada. As imagens ficaram só
 dentro dos contêineres, apagados no fim.
+
+## [2026-10-08] `run` testa a chave antes de lançar e falha rápido quando o OpenRouter a recusa
+
+Task `Openia/Felixo — falhar rápido com chave OpenRouter inválida em vez de ficar
+sem mensagem`, feita por Claude - Tasks do AI Core (Claude Code, Opus 5.5) a
+partir das 05:10. Na validação do Openia empacotado, `openia run claudecode
+--provider` com chave inválida ficou 170 s sem mensagem nenhuma: o OpenRouter
+responde 401 em décimos de segundo, mas o Claude Code em `-p` silencia o 401.
+
+### Decisões do Felipe (08/10/2026)
+
+- Validar no Openia (vale fora do Felixo) **e** o Felixo mostrar um aviso
+  próprio quando o `run` sair com o código da recusa.
+- Rede fora/timeout/5xx: avisar e lançar mesmo assim — nunca virar "chave
+  inválida".
+- Saldo zerado: só avisar (modelos `:free` funcionam sem saldo).
+
+### O que mudou
+
+- `usage.check_api_key` devolve `KeyCheck(status, reason, saldo_zerado)` com
+  `status` em `valida`/`recusada`/`indisponivel`. 401/403 viram
+  `ChaveRecusadaError`, com a resposta curta do OpenRouter no motivo (o 403
+  também é "Key limit exceeded"; padrões `sk-or-…` são omitidos). Conexão
+  derrubada no meio (`RemoteDisconnected`, `ConnectionResetError`) escapava
+  como exceção; agora é `indisponivel`.
+- `cli.run --provider`: `_conferir_chave` roda antes da instalação; recusa →
+  `exit 3` (`CODIGO_CHAVE_RECUSADA`, o mesmo de `ImageAuthenticationError`),
+  indisponível ou saldo zerado → aviso e segue. Timeout do teste: 8 s.
+- Menu interativo: a recusa volta ao menu sem perguntar "tentar mesmo assim?"
+  (401/403 é definitivo); falha de rede, que antes também parava ali com padrão
+  "não", agora só avisa.
+
+### Medido
+
+- `/api/v1/credits` com chave falsa: HTTP 401 "User not found." em 0,36 s;
+  com a chave real deste PC (só em memória, nada impresso): HTTP 200.
+- `OPENROUTER_API_KEY=<falsa> py -m openia run claudecode --provider --no-model
+  --dir <pasta>`: exit 3 em 536, 1387, 558 e 569 ms, mensagem com "Resposta do
+  OpenRouter: User not found."; varredura da saída pela chave inteira e por
+  trechos de 8, 12 e 16 caracteres: nada.
+- Rede fora (`HTTPS_PROXY` numa porta fechada): aviso "a chave não pôde ser
+  testada agora" e segue para lançar em 2,08 s.
+
+### Validação
+
+`python -m pytest -q` → **121 testes passando** (21 novos, todos vermelhos antes
+da mudança); `ruff check .` sem erros.
