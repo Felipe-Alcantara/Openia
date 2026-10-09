@@ -541,3 +541,33 @@ A versão sobe para **0.2.0** (`pyproject.toml`, `openia/__init__.py` e o
 teste do `--version`), para o botão de atualizar do Felixo entregar esta
 correção. Toda mudança que o Felixo precise receber por atualização precisa
 subir a versão de novo.
+
+## [2026-10-09] `openia image`: saldo abaixo do mínimo para imagem tem código próprio
+
+Task `Felixo AI Core/Openia — tela no canvas para pedir e acompanhar geração de
+imagem`, feita por Claude - Tasks do AI Core (Claude Code, Opus 5.5). Na
+primeira geração real pelo Felixo, a conta da chave tinha US$ 0,77 e o OpenRouter
+respondeu HTTP 402 "This request requires at least $1.00 in balance for image or
+video output". O `openia image` devolvia `account_limit` ("a conta do OpenRouter
+não tem saldo ou limite disponível"), o que manda procurar o problema errado:
+saldo havia, só abaixo do mínimo para imagem.
+
+### O que mudou
+
+- `_classify_http_error`: 402 cujo corpo fala de "requires at least" com
+  "image" ou "video" vira `ImageLimitError` com código `minimum_balance` e a
+  mensagem "o saldo da conta do OpenRouter está abaixo do mínimo exigido para
+  gerar imagem; adicione créditos." (mesmo código de saída 5). O resto dos 402
+  continua `account_limit`. O valor do corpo não vira mensagem.
+- Versão 0.2.1: o `pip install --upgrade` só reinstala quando a versão sobe, e
+  o Felixo fixa o Openia por commit no catálogo de CLIs.
+
+### Medido
+
+- Teste novo com o corpo real do OpenRouter: reprovou antes (`account_limit`)
+  e passa depois; o de "balance exhausted" continua `account_limit`.
+- `python3 -m pytest -q`: 122 passaram; `ruff check .`: limpo.
+- Geração real (chave só no ambiente, nunca impressa): com a conta de US$ 0,77,
+  402 de saldo mínimo; com outra conta (US$ 3,49), `openia image --json --model
+  google/gemini-3.1-flash-lite-image` gerou um JPEG 1408×768 de 42 KB em 6 s.
+
