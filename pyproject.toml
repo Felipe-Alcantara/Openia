@@ -1,6 +1,6 @@
 [project]
 name = "openia"
-version = "0.2.0"
+version = "0.2.1"
 description = "Launcher de CLIs de IA de terminal compatíveis com OpenRouter."
 readme = "README.md"
 requires-python = ">=3.10"

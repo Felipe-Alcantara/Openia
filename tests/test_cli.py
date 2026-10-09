@@ -18,7 +18,7 @@ def test_version_is_available_for_external_launcher_detection():
     result = CliRunner().invoke(cli.app, ["--version"])
 
     assert result.exit_code == 0
-    assert result.stdout.strip() == "0.2.0"
+    assert result.stdout.strip() == "0.2.1"
 
 
 def test_list_json_expoe_contrato_sanitizado_de_interfaces():
