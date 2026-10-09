@@ -313,8 +313,10 @@ OPENROUTER_API_KEY=... python scripts/smoke_imagem_empacotada.py \
   --model openai/gpt-image-1-mini --work-dir /tmp/smoke-openia
 ```
 
-A geração real gasta crédito: com saldo baixo, o OpenRouter recusa imagem com
-HTTP 402 (`account_limit`) antes de gerar. No Linux, um contêiner descartável
+A geração real gasta crédito: o OpenRouter recusa imagem com HTTP 402 antes de
+gerar quando a conta está sem saldo (`account_limit`) ou quando o saldo está
+abaixo do mínimo que ele exige para imagem e vídeo (`minimum_balance`; em
+09/10/2026, US$ 1,00). No Linux, um contêiner descartável
 (`docker run --rm -e OPENROUTER_API_KEY python:3.12-slim …`) é o ambiente limpo.
 
 ## 🧬 Escolha de Modelo (empresa → modelo)

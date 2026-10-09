@@ -661,6 +661,16 @@ def _classify_http_error(
             "a chave do OpenRouter foi rejeitada.", code="authentication_error"
         )
     if status == 402:
+        # Imagem e vídeo exigem um saldo MÍNIMO na conta (medido em 09/10/2026:
+        # "requires at least $1.00 in balance for image or video output", com
+        # US$ 0,77 de saldo). Há saldo, então "sem saldo" apontaria o problema
+        # errado; o valor do corpo não vira mensagem.
+        if "requires at least" in hint and ("image" in hint or "video" in hint):
+            return ImageLimitError(
+                "o saldo da conta do OpenRouter está abaixo do mínimo exigido "
+                "para gerar imagem; adicione créditos.",
+                code="minimum_balance",
+            )
         return ImageLimitError(
             "a conta do OpenRouter não tem saldo ou limite disponível.",
             code="account_limit",

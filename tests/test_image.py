@@ -299,6 +299,40 @@ def test_saldo_insuficiente_tem_codigo_seguro_e_nao_cria_artefato(
     assert not list(tmp_path.iterdir())
 
 
+def test_saldo_abaixo_do_minimo_para_imagem_tem_codigo_proprio(tmp_path, monkeypatch):
+    # Corpo real do OpenRouter (09/10/2026, conta com US$ 0,77): imagem e vídeo
+    # exigem saldo mínimo. Há saldo, então "sem saldo" (`account_limit`)
+    # mandaria a pessoa procurar o problema errado.
+    segredo = VALID_KEY
+    corpo = {
+        "error": {
+            "code": 402,
+            "message": "This request requires at least $1.00 in balance for image or video output",
+            "metadata": {"limit_source": "openrouter_credits"},
+        }
+    }
+
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url, 402, "Payment Required", {}, io.BytesIO(json.dumps(corpo).encode())
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageLimitError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), segredo)
+
+    assert exc.value.code == "minimum_balance"
+    assert exc.value.exit_code == 5
+    assert not exc.value.retryable
+    assert "saldo" in str(exc.value) and "mínimo" in str(exc.value)
+    assert "$1.00" not in str(exc.value), "o corpo do OpenRouter nunca vira mensagem"
+    assert segredo not in json.dumps(image.error_payload(exc.value, "pedido-1"))
+    assert not list(tmp_path.iterdir())
+
+
 def test_rate_limit_tem_codigo_retryable_e_nao_cria_artefato(tmp_path, monkeypatch):
     segredo = VALID_KEY
 
