@@ -571,3 +571,20 @@ saldo havia, só abaixo do mínimo para imagem.
   402 de saldo mínimo; com outra conta (US$ 3,49), `openia image --json --model
   google/gemini-3.1-flash-lite-image` gerou um JPEG 1408×768 de 42 KB em 6 s.
 
+## [2026-10-09] Correção: o 402 do endpoint de imagens não traz o texto do mínimo
+
+Correção da entrada anterior (mesma task e agente). O corpo "This request
+requires at least $1.00 in balance for image or video output" foi medido com um
+pedido à API de chat (`/api/v1/chat/completions`), não ao endpoint de imagens
+que o `openia image` usa (`/api/v1/images`). Medido em seguida, com a mesma
+conta (US$ 0,77) e o mesmo modelo, pelo endpoint de imagens: HTTP 402
+"Insufficient credits. Add more using https://openrouter.ai/settings/credits".
+Com a 0.2.1 instalada, `openia image --json` devolveu `account_limit`, não
+`minimum_balance`.
+
+- O `minimum_balance` continua: é inofensivo, testado, e cobre o texto
+  explícito se o OpenRouter passar a mandá-lo também nas imagens. Hoje, a falta
+  de saldo mínimo para imagem chega como `account_limit`.
+- O README diz isso. O Felixo trata `account_limit` e `minimum_balance` como a
+  mesma falta de créditos, com uma mensagem que cita o mínimo para imagem.
+

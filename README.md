@@ -314,9 +314,12 @@ OPENROUTER_API_KEY=... python scripts/smoke_imagem_empacotada.py \
 ```
 
 A geração real gasta crédito: o OpenRouter recusa imagem com HTTP 402 antes de
-gerar quando a conta está sem saldo (`account_limit`) ou quando o saldo está
-abaixo do mínimo que ele exige para imagem e vídeo (`minimum_balance`; em
-09/10/2026, US$ 1,00). No Linux, um contêiner descartável
+gerar quando a conta não tem créditos suficientes (`account_limit`). Imagem e
+vídeo exigem um saldo mínimo na conta (US$ 1,00 em 09/10/2026): com saldo
+abaixo dele, o endpoint de imagens responde "Insufficient credits", que também
+vira `account_limit`. Se o OpenRouter mandar o texto explícito do mínimo
+("requires at least … for image or video output"), o código é
+`minimum_balance`. No Linux, um contêiner descartável
 (`docker run --rm -e OPENROUTER_API_KEY python:3.12-slim …`) é o ambiente limpo.
 
 ## 🧬 Escolha de Modelo (empresa → modelo)
