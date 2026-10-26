@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 
 import pytest
 from typer.testing import CliRunner
@@ -174,6 +176,49 @@ def test_image_cli_erro_de_chave_e_json_seguro(tmp_path, monkeypatch):
             "message": "nenhuma chave do OpenRouter foi configurada.",
         },
     }
+
+
+def test_image_cli_limite_da_chave_sai_com_codigo_5_e_json_seguro(tmp_path, monkeypatch):
+    # O Felixo lê este envelope e a saída 5 para dizer "aumente o limite da
+    # chave" em vez de "chave rejeitada" (saída 3). O 403 vale em qualquer fase:
+    # o double responde igual ao catálogo e ao POST.
+    monkeypatch.setattr(cli.config, "load_api_key", lambda: VALID_KEY)
+    corpo = json.dumps(
+        {"error": {"code": 403, "message": "Key limit exceeded (total limit)"}}
+    ).encode()
+
+    def fake_urlopen(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 403, "Forbidden", {}, io.BytesIO(corpo)
+        )
+
+    monkeypatch.setattr(image_service.urllib.request, "urlopen", fake_urlopen)
+
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "image",
+            "um desenho",
+            "--model",
+            "openai/gpt-image-1",
+            "--output-dir",
+            str(tmp_path),
+            "--retries",
+            "0",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 5, result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["ok"] is False
+    assert payload["error"] == {
+        "code": "key_limit",
+        "message": "o limite de gasto desta chave do OpenRouter acabou; aumente o "
+        "limite da chave ou use outra.",
+    }
+    assert "total limit" not in result.stdout
+    assert VALID_KEY not in result.stdout
 
 
 def test_image_cli_validacao_de_opcao_nao_vaza_traceback(tmp_path, monkeypatch):

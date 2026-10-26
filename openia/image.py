@@ -656,6 +656,15 @@ def _status(response: Any) -> int:
 def _classify_http_error(
     status: int, phase: str, hint: str, *, provider_selected: bool = False
 ) -> ImageError:
+    if status == 403 and "key limit exceeded" in hint:
+        # Chave válida cujo limite de gasto próprio acabou (medido em 07/10/2026:
+        # "Key limit exceeded (total limit)"). Trocar a chave não resolve; o texto
+        # do corpo não vira mensagem, e o limite só existe no 403.
+        return ImageLimitError(
+            "o limite de gasto desta chave do OpenRouter acabou; aumente o "
+            "limite da chave ou use outra.",
+            code="key_limit",
+        )
     if status in {401, 403}:
         return ImageAuthenticationError(
             "a chave do OpenRouter foi rejeitada.", code="authentication_error"

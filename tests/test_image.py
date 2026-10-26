@@ -333,6 +333,70 @@ def test_saldo_abaixo_do_minimo_para_imagem_tem_codigo_proprio(tmp_path, monkeyp
     assert not list(tmp_path.iterdir())
 
 
+def test_limite_da_chave_esgotado_no_403_nao_vira_chave_rejeitada(
+    tmp_path, monkeypatch
+):
+    # Smoke de 07/10/2026: uma chave válida cujo limite próprio acabou recebeu
+    # 403 "Key limit exceeded (total limit)". Trocar a chave não resolve; a
+    # pessoa precisa aumentar o limite dela no OpenRouter.
+    segredo = VALID_KEY
+    corpo = {
+        "error": {
+            "code": 403,
+            "message": f"Key limit exceeded (total limit) token={segredo}",
+        }
+    }
+
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url, 403, "Forbidden", {}, io.BytesIO(json.dumps(corpo).encode())
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageLimitError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), segredo)
+
+    assert exc.value.code == "key_limit"
+    assert exc.value.exit_code == 5
+    assert not exc.value.retryable
+    assert "limite" in str(exc.value) and "chave" in str(exc.value)
+    assert "total limit" not in str(exc.value), "o corpo do OpenRouter nunca vira mensagem"
+    assert segredo not in json.dumps(image.error_payload(exc.value, "pedido-1"))
+    assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize(
+    ("status", "corpo"),
+    [
+        (403, b"Forbidden"),
+        (401, b'{"error": {"code": 401, "message": "User not found."}}'),
+        # O limite da chave só existe no 403; o mesmo texto num 401 não conta.
+        (401, b'{"error": {"code": 401, "message": "Key limit exceeded"}}'),
+    ],
+)
+def test_chave_rejeitada_continua_authentication_error(
+    tmp_path, monkeypatch, status, corpo
+):
+    def fake_urlopen(req, timeout=None):
+        if req.full_url.endswith("/models"):
+            return _Response(_models_response())
+        raise urllib.error.HTTPError(
+            req.full_url, status, "Rejected", {}, io.BytesIO(corpo)
+        )
+
+    monkeypatch.setattr(image.urllib.request, "urlopen", fake_urlopen)
+
+    with pytest.raises(image.ImageAuthenticationError) as exc:
+        image.generate_image(_request(tmp_path, retries=0), VALID_KEY)
+
+    assert exc.value.code == "authentication_error"
+    assert exc.value.exit_code == 3
+    assert not list(tmp_path.iterdir())
+
+
 def test_rate_limit_tem_codigo_retryable_e_nao_cria_artefato(tmp_path, monkeypatch):
     segredo = VALID_KEY
 
