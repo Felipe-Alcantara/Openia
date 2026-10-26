@@ -588,3 +588,55 @@ Com a 0.2.1 instalada, `openia image --json` devolveu `account_limit`, não
 - O README diz isso. O Felixo trata `account_limit` e `minimum_balance` como a
   mesma falta de créditos, com uma mensagem que cita o mínimo para imagem.
 
+## [2026-10-26] `openia image`: limite de gasto da chave esgotado (403) deixa de ser "chave rejeitada"
+
+Task `Openia/Imagem — distinguir limite de chave esgotado (HTTP 403) de chave
+rejeitada`, feita por Tasks OpenIA + AI Core (Claude Code, Sonnet 5.5) a partir
+das 09:46. No smoke de 07/10, uma chave válida cujo limite próprio tinha acabado
+recebeu HTTP 403 "Key limit exceeded (total limit)", e o `openia image`
+respondeu `authentication_error` ("a chave do OpenRouter foi rejeitada.", saída
+3). A pessoa trocaria uma chave que está certa; o que falta é aumentar o limite
+dela.
+
+### Causa raiz
+
+`_classify_http_error` tratava 401 e 403 como a mesma coisa (`image.py:659`), sem
+olhar o corpo. O ramo do 402, logo abaixo, já refinava pelo `hint`; o 403 não. O
+403 do OpenRouter tem dois significados (chave rejeitada × limite da chave), e a
+função é o único ponto que classifica (os dois chamadores em `_request_json`
+passam o `hint`), então a correção é uma só.
+
+### O que mudou
+
+- 403 cujo corpo contém "key limit exceeded" vira `ImageLimitError` com o código
+  novo `key_limit` (saída 5, sem nova tentativa) e a mensagem fixa "o limite de
+  gasto desta chave do OpenRouter acabou; aumente o limite da chave ou use
+  outra." O texto do corpo nunca vira mensagem.
+- 401 e os demais 403 continuam `authentication_error`. O mesmo texto num 401
+  também: o limite da chave só existe no 403.
+- **Decisão do agente:** código novo `key_limit`, e não `account_limit`. O Felixo
+  trata `account_limit` como falta de créditos ("adicione créditos"), a ação
+  errada para uma chave cuja conta tem saldo. `key_limit` segue na classe
+  `limit_error` (saída 5), então um Felixo que não o conheça ainda mostra um
+  limite, e não uma chave recusada.
+
+### Medido
+
+- Teste novo `test_limite_da_chave_esgotado_no_403_nao_vira_chave_rejeitada`
+  reprovou antes (`ImageAuthenticationError: a chave do OpenRouter foi
+  rejeitada.`) e passa depois. O do CLI
+  (`test_image_cli_limite_da_chave_sai_com_codigo_5_e_json_seguro`) saía com 3 e
+  agora sai com 5 e o envelope `key_limit`. Três testes de guarda (403 genérico,
+  401 comum e 401 com o texto do limite) travam o que não pode mudar.
+- `python -m pytest -q`: 127 passaram (eram 122); `ruff check .`: limpo.
+- Limite: o corpo dos testes é um double HTTP no formato do erro do OpenRouter
+  (`{"error": {"code": 403, "message": "Key limit exceeded (total limit)"}}`, o
+  mesmo do teste de `usage.py`). Não foi refeito com uma chave real de limite
+  esgotado.
+
+### Fora desta entrada
+
+A versão segue 0.2.1: o `pip --upgrade` só reinstala com versão nova e o Felixo
+fixa o Openia por commit, então subir a versão e o pino é uma entrega à parte. O
+`usage.py` (`run`) já mostra a resposta do OpenRouter no 403 e não mudou.
+

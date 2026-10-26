@@ -319,8 +319,12 @@ vídeo exigem um saldo mínimo na conta (US$ 1,00 em 09/10/2026): com saldo
 abaixo dele, o endpoint de imagens responde "Insufficient credits", que também
 vira `account_limit`. Se o OpenRouter mandar o texto explícito do mínimo
 ("requires at least … for image or video output"), o código é
-`minimum_balance`. No Linux, um contêiner descartável
-(`docker run --rm -e OPENROUTER_API_KEY python:3.12-slim …`) é o ambiente limpo.
+`minimum_balance`. Chave válida cujo **limite de gasto próprio** acabou (HTTP 403
+"Key limit exceeded") sai com `key_limit` (saída 5), e não como chave rejeitada:
+a pessoa precisa aumentar o limite da chave no OpenRouter, não trocá-la. O 401 e
+os demais 403 continuam `authentication_error` (saída 3). No Linux, um contêiner
+descartável (`docker run --rm -e OPENROUTER_API_KEY python:3.12-slim …`) é o
+ambiente limpo.
 
 ## 🧬 Escolha de Modelo (empresa → modelo)
 
